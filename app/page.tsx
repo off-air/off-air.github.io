@@ -997,11 +997,11 @@ function Admin({
   };
   const uploadProfile = async (file?: File) => {
     if (!file) return;
-    const optimized = file.type === "image/gif" ? file : await resizeForUpload(file, 1200, 0.84);
-    const form = new FormData();
-    form.set("file", optimized);
-    form.set("recordId", String(p.id));
     try {
+      const optimized = file.type === "image/gif" ? file : await resizeForUpload(file, 1200, 0.84);
+      const form = new FormData();
+      form.set("file", optimized);
+      form.set("recordId", String(p.id));
       const response = await fetch("/api/admin/profile-images", {
         method: "POST",
         headers: { authorization: `Bearer ${token}` },
@@ -1012,7 +1012,7 @@ function Admin({
       update("avatar_key", data.avatar_key);
       showToast("프로필 사진을 업로드했습니다.");
     } catch {
-      showToast("사진을 업로드하지 못했습니다. 5MB 이하 이미지를 사용해주세요.");
+      showToast("사진을 최적화하거나 업로드하지 못했습니다. 다른 이미지를 사용해주세요.");
     }
     setTimeout(() => showToast(""), 2600);
   };
