@@ -8,13 +8,13 @@ export async function POST(request:Request){
   const form=await request.formData();
   const recordId=Number(form.get('recordId'));
   const files=form.getAll('files').filter((file):file is File=>file instanceof File);
-  if(!Number.isInteger(recordId)||!files.length||files.length>10)return Response.json({error:'한 번에 1~10장의 이미지를 선택해주세요.'},{status:400});
-  if(files.some(file=>!allowedTypes.has(file.type)||file.size>5*1024*1024))return Response.json({error:'각 5MB 이하의 JPG, PNG, WEBP만 업로드할 수 있습니다.'},{status:400});
+  if(!Number.isInteger(recordId)||!files.length||files.length>50)return Response.json({error:'한 번에 1~50장의 이미지를 선택해주세요.'},{status:400});
+  if(files.some(file=>!allowedTypes.has(file.type)||file.size>1024*1024))return Response.json({error:'각 1MB 이하의 JPG, PNG, WEBP만 업로드할 수 있습니다.'},{status:400});
   await ensureDatabase();
   const record=await db().prepare('SELECT id FROM records WHERE id=?').bind(recordId).first();
   if(!record)return Response.json({error:'기록을 찾을 수 없습니다.'},{status:404});
   const count=await db().prepare('SELECT COUNT(*) AS count FROM record_gallery WHERE record_id=?').bind(recordId).first<{count:number}>();
-  if((count?.count||0)+files.length>10)return Response.json({error:'기록당 갤러리는 최대 10장입니다.'},{status:400});
+  if((count?.count||0)+files.length>50)return Response.json({error:'기록당 갤러리는 최대 50장입니다.'},{status:400});
   const uploaded:Array<{key:string;order:number}>=[];
   for(const [index,file] of files.entries()){
     const key=`gallery/${recordId}/${crypto.randomUUID()}.${extensions[file.type]}`;

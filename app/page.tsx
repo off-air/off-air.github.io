@@ -1239,7 +1239,7 @@ function Admin({
             </label>
             <div className="gallery-admin">
               <label>
-                <span>상세 갤러리 · 최대 10장 / 각 5MB</span>
+                <span>상세 갤러리 · 최대 50장 / 각 1MB</span>
                 <input type="file" multiple accept="image/jpeg,image/png,image/webp" onChange={(e) => { uploadGallery(e.target.files); e.currentTarget.value = ""; }} />
               </label>
               {(p.gallery || []).length > 0 && (
@@ -1269,18 +1269,43 @@ function SubmissionQueue({
   items: Submission[];
   update: (id: number, status: string) => void;
 }) {
+  const [box, setBox] = useState<"inbox" | "completed">("inbox");
+  const [submissionSort, setSubmissionSort] = useState<"newest" | "oldest" | "status">("newest");
+  const pendingCount = items.filter((item) => item.status === "pending").length;
+  const completedCount = items.length - pendingCount;
+  const visibleItems = items
+    .filter((item) => box === "inbox" ? item.status === "pending" : item.status !== "pending")
+    .sort((a, b) => submissionSort === "oldest"
+      ? new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      : submissionSort === "status"
+        ? a.status.localeCompare(b.status)
+        : new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   return (
     <section className="submission-queue">
       <div className="section-heading">
         <div>
           <p className="section-no">SUBMISSIONS — REVIEW</p>
-          <h2>접수된 제보</h2>
+          <h2>{box === "inbox" ? "접수된 제보" : "처리한 제보"}</h2>
         </div>
-        <p>접수 {items.filter((item) => item.status === "pending").length}건</p>
+        <p>{box === "inbox" ? `접수 ${pendingCount}건` : `완료 ${completedCount}건`}</p>
       </div>
-      {items.length ? (
+      <div className="submission-tools">
+        <div className="submission-tabs" role="tablist" aria-label="제보함 선택">
+          <button className={box === "inbox" ? "active" : ""} onClick={() => setBox("inbox")} role="tab" aria-selected={box === "inbox"}>접수된 제보 <span>{pendingCount}</span></button>
+          <button className={box === "completed" ? "active" : ""} onClick={() => setBox("completed")} role="tab" aria-selected={box === "completed"}>처리한 제보 <span>{completedCount}</span></button>
+        </div>
+        <label>
+          정렬
+          <select value={submissionSort} onChange={(event) => setSubmissionSort(event.target.value as "newest" | "oldest" | "status")}>
+            <option value="newest">최신 접수순</option>
+            <option value="oldest">오래된 접수순</option>
+            <option value="status">처리 상태순</option>
+          </select>
+        </label>
+      </div>
+      {visibleItems.length ? (
         <div className="submission-list">
-          {items.map((item) => (
+          {visibleItems.map((item) => (
             <article key={item.id}>
               <div>
                 <span>{item.submission_type}</span>
@@ -1316,7 +1341,8 @@ function SubmissionQueue({
         </div>
       ) : (
         <div className="empty">
-          <b>접수된 제보가 없습니다.</b>
+          <b>{box === "inbox" ? "접수된 제보가 없습니다." : "처리한 제보가 없습니다."}</b>
+          {box === "completed" && <p>확인 완료 또는 반영 완료한 제보가 이곳에 모입니다.</p>}
         </div>
       )}
     </section>
@@ -1326,7 +1352,6 @@ function Footer({ go }: { go: (v: View) => void }) {
   return (
     <footer>
       <button onClick={() => go("home")}>OFF–AIR</button>
-      <p>방송이 멈춘 뒤에도, 기록은 남습니다.</p>
       <div>
         <button onClick={() => go("submit")}>기록 제보</button>
         <button onClick={() => go("privacy")}>데이터 안내</button>
