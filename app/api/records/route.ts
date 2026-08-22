@@ -1,7 +1,7 @@
-import { db, ensureDatabase } from '../../../lib/db';
+import { listPublicRecords } from "../../../lib/records";
+
 export async function GET(){
-  await ensureDatabase();
-  const {results}=await db().prepare(`SELECT r.*, r.base_memories + COUNT(m.visitor_id) AS memories FROM records r LEFT JOIN remembrance m ON m.record_id=r.id WHERE r.published=1 GROUP BY r.id ORDER BY r.last_activity DESC`).all();
-  const rows=results as unknown as Array<{tags:string;last_activity:string;[key:string]:unknown}>;
-  return Response.json(rows.map(r=>{ let tags:unknown=[]; try { tags=JSON.parse(r.tags||'[]'); } catch { tags=[]; } return {...r,last:r.last_activity,tags:Array.isArray(tags)?tags:[]}; }));
+  return Response.json(await listPublicRecords(), {
+    headers: { "Cache-Control": "public, max-age=15, s-maxage=30, stale-while-revalidate=60" },
+  });
 }
