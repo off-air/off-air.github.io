@@ -23,6 +23,12 @@
       "migrations_dir": "./migrations"
     }
   ],
+  "r2_buckets": [
+    {
+      "binding": "PROFILE_IMAGES",
+      "bucket_name": "yeojeonhi-profile-images"
+    }
+  ],
   "observability": {
     "enabled": true,
     "head_sampling_rate": 1

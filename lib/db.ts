@@ -1,14 +1,21 @@
 import { env } from 'cloudflare:workers';
 import { schemaStatements } from '../db/schema';
 
-type RuntimeEnv = { DB: D1Database; YEOJEONHI_ADMIN_TOKEN?: string };
+type RuntimeEnv = { DB: D1Database; PROFILE_IMAGES: R2Bucket; YEOJEONHI_ADMIN_TOKEN?: string };
 const runtime = env as unknown as RuntimeEnv;
 let ready: Promise<void> | null = null;
 
 export function db(){ return runtime.DB; }
+export function profileImages(){ return runtime.PROFILE_IMAGES; }
 export function ensureDatabase(){
-  if(!ready) ready=(async()=>{await db().batch(schemaStatements.map(sql=>db().prepare(sql)));await seed();})();
+  if(!ready) ready=(async()=>{await db().batch(schemaStatements.map(sql=>db().prepare(sql)));await ensureRecordColumns();await seed();})();
   return ready;
+}
+async function ensureRecordColumns(){
+  const {results}=await db().prepare('PRAGMA table_info(records)').all<{name:string}>();
+  const columns=new Set(results.map(column=>column.name));
+  if(!columns.has('affiliation'))await db().prepare("ALTER TABLE records ADD COLUMN affiliation TEXT NOT NULL DEFAULT ''").run();
+  if(!columns.has('avatar_key'))await db().prepare('ALTER TABLE records ADD COLUMN avatar_key TEXT').run();
 }
 async function seed(){
   const row=await db().prepare('SELECT COUNT(*) AS count FROM records').first<{count:number}>();

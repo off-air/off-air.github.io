@@ -1,0 +1,2 @@
+ALTER TABLE records ADD COLUMN affiliation TEXT NOT NULL DEFAULT '';
+ALTER TABLE records ADD COLUMN avatar_key TEXT;

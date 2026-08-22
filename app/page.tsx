@@ -6,6 +6,8 @@ type Person = {
   id: number;
   name: string;
   handle: string;
+  affiliation?: string;
+  avatar_key?: string;
   initial: string;
   color: string;
   debut: string;
@@ -182,6 +184,9 @@ export default function Home({ initialPath = "/" }: { initialPath?: string }) {
   >("loading");
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState("recent");
+  const [layout, setLayout] = useState<"grid" | "list">("grid");
+  const [pageSize, setPageSize] = useState<5 | 10>(5);
+  const [currentPage, setCurrentPage] = useState(1);
   const [remembered, setRemembered] = useState<number[]>(() => {
     if (typeof window === "undefined") return [];
     try {
@@ -281,7 +286,7 @@ export default function Home({ initialPath = "/" }: { initialPath?: string }) {
     () =>
       people
         .filter((p) =>
-          (p.name + p.handle + p.tags.join(""))
+          (p.name + p.tags.join(""))
             .toLowerCase()
             .includes(query.toLowerCase()),
         )
@@ -293,6 +298,11 @@ export default function Home({ initialPath = "/" }: { initialPath?: string }) {
               : daysAgo(a.last) - daysAgo(b.last),
         ),
     [people, query, sort],
+  );
+  const pageCount = Math.max(1, Math.ceil(list.length / pageSize));
+  const pagedList = list.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
   );
   const submitForm = async (e: FormEvent) => {
     e.preventDefault();
@@ -332,12 +342,20 @@ export default function Home({ initialPath = "/" }: { initialPath?: string }) {
       )}
       {view === "home" && (
         <Archive
-          list={list}
+          list={pagedList}
+          total={list.length}
           status={recordStatus}
           query={query}
-          setQuery={setQuery}
+          setQuery={(value) => { setQuery(value); setCurrentPage(1); }}
           sort={sort}
-          setSort={setSort}
+          setSort={(value) => { setSort(value); setCurrentPage(1); }}
+          layout={layout}
+          setLayout={setLayout}
+          pageSize={pageSize}
+          setPageSize={(value) => { setPageSize(value); setCurrentPage(1); }}
+          currentPage={currentPage}
+          pageCount={pageCount}
+          setCurrentPage={setCurrentPage}
           open={openPerson}
         />
       )}
@@ -392,19 +410,35 @@ function Header({ view, go }: { view: View; go: (v: View) => void }) {
 }
 function Archive({
   list,
+  total,
   status,
   query,
   setQuery,
   sort,
   setSort,
+  layout,
+  setLayout,
+  pageSize,
+  setPageSize,
+  currentPage,
+  pageCount,
+  setCurrentPage,
   open,
 }: {
   list: Person[];
+  total: number;
   status: "loading" | "ready" | "error";
   query: string;
   setQuery: (v: string) => void;
   sort: string;
   setSort: (v: string) => void;
+  layout: "grid" | "list";
+  setLayout: (v: "grid" | "list") => void;
+  pageSize: 5 | 10;
+  setPageSize: (v: 5 | 10) => void;
+  currentPage: number;
+  pageCount: number;
+  setCurrentPage: (v: number) => void;
   open: (p: Person) => void;
 }) {
   return (
@@ -437,7 +471,7 @@ function Archive({
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="이름, 활동명, 키워드로 찾기"
+                placeholder="활동명, 키워드로 찾기"
                 aria-label="기록 검색"
               />
               {query && (
@@ -454,10 +488,36 @@ function Archive({
                 <option value="name">이름순</option>
               </select>
             </label>
+            <label className="sort page-size">
+              표시
+              <select
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value) as 5 | 10)}
+              >
+                <option value={5}>5개씩</option>
+                <option value={10}>10개씩</option>
+              </select>
+            </label>
+            <div className="view-switch" aria-label="보기 방식">
+              <button
+                className={layout === "list" ? "active" : ""}
+                onClick={() => setLayout("list")}
+                aria-pressed={layout === "list"}
+              >
+                리스트
+              </button>
+              <button
+                className={layout === "grid" ? "active" : ""}
+                onClick={() => setLayout("grid")}
+                aria-pressed={layout === "grid"}
+              >
+                격자
+              </button>
+            </div>
           </div>
-          <p className="result-count">기록 {list.length}건</p>
+          <p className="result-count">기록 {total}건</p>
           {list.length ? (
-            <div className="card-grid">
+            <div className={`card-grid ${layout === "list" ? "list-view" : ""}`}>
               {list.map((p) => (
                 <Card key={p.id} p={p} open={() => open(p)} />
               ))}
@@ -467,6 +527,23 @@ function Archive({
               <b>찾는 기록이 없습니다.</b>
               <p>다른 이름이나 키워드로 다시 찾아보세요.</p>
             </div>
+          )}
+          {pageCount > 1 && (
+            <nav className="pagination" aria-label="기록 페이지">
+              <button
+                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1}
+              >
+                이전
+              </button>
+              <span>{currentPage} / {pageCount}</span>
+              <button
+                onClick={() => setCurrentPage(Math.min(pageCount, currentPage + 1))}
+                disabled={currentPage === pageCount}
+              >
+                다음
+              </button>
+            </nav>
           )}
           <p className="fiction-note">
             ※ 이 프로토타입의 인물과 활동 기록은 모두 화면 시연을 위한 가상
@@ -483,8 +560,13 @@ function Portrait({ p, large = false }: { p: Person; large?: boolean }) {
       className={`portrait ${large ? "large" : ""}`}
       style={{ "--portrait": p.color } as React.CSSProperties}
     >
-      <span>{p.initial}</span>
-      <small>archive portrait · sample</small>
+      {p.avatar_key ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={`/api/profile-images/${encodeURIComponent(p.avatar_key)}`} alt={`${p.name} 프로필`} />
+      ) : (
+        <span>{p.initial}</span>
+      )}
+      <small>{p.avatar_key ? "archive portrait" : "archive portrait · sample"}</small>
     </div>
   );
 }
@@ -503,7 +585,7 @@ function Card({ p, open }: { p: Person; open: () => void }) {
         <div className="identity">
           <div>
             <h3>{p.name}</h3>
-            <p>{p.handle}</p>
+            <p>{p.affiliation || p.category} · {p.tags.slice(0, 2).map((tag) => `#${tag}`).join(" ")}</p>
           </div>
           <button
             onClick={(e) => {
@@ -544,7 +626,7 @@ function Detail({
         <div className="detail-intro">
           <p className="eyebrow">ARCHIVE NO. {String(p.id).padStart(3, "0")}</p>
           <h1>{p.name}</h1>
-          <p className="handle">{p.handle}</p>
+          <p className="handle">{p.affiliation || p.category} · {p.tags.map((tag) => `#${tag}`).join(" ")}</p>
           <p className="lead">{p.note}</p>
           <button
             className={`remember ${remembered ? "saved" : ""}`}
@@ -809,6 +891,46 @@ function Admin({
     }
     setTimeout(() => showToast(""), 2400);
   };
+  const createRecord = async () => {
+    try {
+      const response = await fetch("/api/admin/records", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${token}`,
+        },
+        body: "{}",
+      });
+      const record = await response.json();
+      if (!response.ok) throw new Error(record.error);
+      setPeople([...people, record]);
+      setActive(record.id);
+      showToast("새 기록을 만들었습니다. 내용을 입력해 저장해주세요.");
+    } catch {
+      showToast("새 기록을 만들지 못했습니다.");
+    }
+    setTimeout(() => showToast(""), 2400);
+  };
+  const uploadProfile = async (file?: File) => {
+    if (!file) return;
+    const form = new FormData();
+    form.set("file", file);
+    form.set("recordId", String(p.id));
+    try {
+      const response = await fetch("/api/admin/profile-images", {
+        method: "POST",
+        headers: { authorization: `Bearer ${token}` },
+        body: form,
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error);
+      update("avatar_key", data.avatar_key);
+      showToast("프로필 사진을 업로드했습니다.");
+    } catch {
+      showToast("사진을 업로드하지 못했습니다. 5MB 이하 이미지를 사용해주세요.");
+    }
+    setTimeout(() => showToast(""), 2600);
+  };
   if (!authenticated)
     return (
       <div className="page admin-page">
@@ -866,6 +988,7 @@ function Admin({
           <div className="admin-side-title">
             <b>전체 기록</b>
             <span>{people.length}</span>
+            <button className="add-record" onClick={createRecord}>+ 새 기록</button>
           </div>
           {people.map((x) => (
             <button
@@ -876,7 +999,7 @@ function Admin({
               <i style={{ background: x.color }}>{x.initial}</i>
               <span>
                 <b>{x.name}</b>
-                <small>{x.handle}</small>
+                <small>{x.affiliation || x.category}</small>
               </span>
               <em>{Boolean(x.published) ? "공개" : "비공개"}</em>
             </button>
@@ -919,10 +1042,11 @@ function Admin({
                 />
               </label>
               <label>
-                <span>활동 계정</span>
+                <span>태그 · 띄어쓰기로 구분</span>
                 <input
-                  value={p.handle}
-                  onChange={(e) => update("handle", e.target.value)}
+                  value={p.tags.join(" ")}
+                  onChange={(e) => update("tags", e.target.value.split(/\s+/).filter(Boolean))}
+                  placeholder="게임 노래 잡담"
                 />
               </label>
             </div>
@@ -981,6 +1105,27 @@ function Admin({
                 </div>
               </label>
             </div>
+            {p.category === "소속" && (
+              <label>
+                <span>소속명</span>
+                <input
+                  value={p.affiliation || ""}
+                  onChange={(e) => update("affiliation", e.target.value)}
+                  placeholder="소속 그룹 또는 회사명"
+                />
+              </label>
+            )}
+            <label className="profile-upload">
+              <span>프로필 사진 · JPG, PNG, WEBP, GIF / 최대 5MB</span>
+              <div>
+                <Portrait p={p} />
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  onChange={(e) => uploadProfile(e.target.files?.[0])}
+                />
+              </div>
+            </label>
           </div>
         </section>
       </div>

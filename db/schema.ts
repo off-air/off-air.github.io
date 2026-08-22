@@ -3,6 +3,8 @@ export const schemaStatements = [
     id INTEGER PRIMARY KEY,
     name TEXT NOT NULL,
     handle TEXT NOT NULL UNIQUE,
+    affiliation TEXT NOT NULL DEFAULT '',
+    avatar_key TEXT,
     initial TEXT NOT NULL,
     color TEXT NOT NULL,
     debut TEXT NOT NULL,
