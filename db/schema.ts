@@ -5,6 +5,7 @@ export const schemaStatements = [
     handle TEXT NOT NULL UNIQUE,
     affiliation TEXT NOT NULL DEFAULT '',
     avatar_key TEXT,
+    activity_status TEXT NOT NULL DEFAULT '소식이 끊긴 버튜버',
     initial TEXT NOT NULL,
     color TEXT NOT NULL,
     debut TEXT NOT NULL,
@@ -16,6 +17,14 @@ export const schemaStatements = [
     base_memories INTEGER NOT NULL DEFAULT 0,
     published INTEGER NOT NULL DEFAULT 1,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE TABLE IF NOT EXISTS record_gallery (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    record_id INTEGER NOT NULL,
+    object_key TEXT NOT NULL UNIQUE,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (record_id) REFERENCES records(id) ON DELETE CASCADE
   )`,
   `CREATE TABLE IF NOT EXISTS remembrance (
     record_id INTEGER NOT NULL,
@@ -42,6 +51,7 @@ export const schemaStatements = [
     PRIMARY KEY (action, client_hash, window_start)
   )`,
   `CREATE INDEX IF NOT EXISTS idx_records_published_last ON records(published, last_activity)`,
+  `CREATE INDEX IF NOT EXISTS idx_record_gallery_record_order ON record_gallery(record_id, sort_order, id)`,
   `CREATE INDEX IF NOT EXISTS idx_submissions_status_created ON submissions(status, created_at)`,
   `CREATE INDEX IF NOT EXISTS idx_rate_limits_window ON rate_limits(window_start)`,
 ];

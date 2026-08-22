@@ -16,6 +16,7 @@ async function ensureRecordColumns(){
   const columns=new Set(results.map(column=>column.name));
   if(!columns.has('affiliation'))await db().prepare("ALTER TABLE records ADD COLUMN affiliation TEXT NOT NULL DEFAULT ''").run();
   if(!columns.has('avatar_key'))await db().prepare('ALTER TABLE records ADD COLUMN avatar_key TEXT').run();
+  if(!columns.has('activity_status'))await db().prepare("ALTER TABLE records ADD COLUMN activity_status TEXT NOT NULL DEFAULT '소식이 끊긴 버튜버'").run();
 }
 async function seed(){
   const row=await db().prepare('SELECT COUNT(*) AS count FROM records').first<{count:number}>();

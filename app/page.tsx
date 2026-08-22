@@ -13,6 +13,8 @@ type Person = {
   debut: string;
   last: string;
   category: string;
+  activity_status?: string;
+  gallery?: { id: number; record_id: number; object_key: string }[];
   note: string;
   bio: string;
   tags: string[];
@@ -160,6 +162,8 @@ const yearsText = (date: string) => {
   const m = Math.floor((days % 365) / 30);
   return y ? `${y}년 ${m ? `${m}개월` : ""}`.trim() : `${m}개월`;
 };
+const statusText = (person: Person) =>
+  person.activity_status || "소식이 끊긴 버튜버";
 
 function viewFromPath(path: string): View {
   if (/^\/records\/\d+$/.test(path)) return "detail";
@@ -362,6 +366,7 @@ export default function Home({ initialPath = "/" }: { initialPath?: string }) {
       {view === "detail" &&
         (recordStatus === "ready" ? (
           <Detail
+            key={selected.id}
             person={selected}
             back={() => go("home")}
             remembered={remembered.includes(selected.id)}
@@ -600,6 +605,7 @@ function Card({ p, open }: { p: Person; open: () => void }) {
             기록 보기 ↗
           </button>
         </div>
+        <span className="status-badge">{statusText(p)}</span>
         <p className="note">{p.note}</p>
         <div className="last-seen">
           <span>마지막 활동</span>
@@ -620,6 +626,14 @@ function Detail({
   remembered: boolean;
   remember: () => void;
 }) {
+  const [galleryIndex, setGalleryIndex] = useState<number | null>(null);
+  const [gallery, setGallery] = useState(p.gallery || []);
+  useEffect(() => {
+    fetch(`/api/gallery?recordId=${p.id}`)
+      .then((response) => response.ok ? response.json() : [])
+      .then(setGallery)
+      .catch(() => undefined);
+  }, [p.id]);
   return (
     <div className="page detail-page">
       <button className="back" onClick={back}>
@@ -631,6 +645,7 @@ function Detail({
           <p className="eyebrow">ARCHIVE NO. {String(p.id).padStart(3, "0")}</p>
           <h1>{p.name}</h1>
           <p className="handle">{p.affiliation || p.category} · {p.tags.map((tag) => `#${tag}`).join(" ")}</p>
+          <span className="status-badge detail-status">{statusText(p)}</span>
           <p className="lead">{p.note}</p>
           <button
             className={`remember ${remembered ? "saved" : ""}`}
@@ -672,6 +687,35 @@ function Detail({
           </div>
         </div>
       </section>
+      {gallery.length > 0 && (
+        <section className="record-gallery">
+          <div className="gallery-heading">
+            <div>
+              <p className="section-no">03 — GALLERY</p>
+              <h2>남아 있는 장면</h2>
+            </div>
+            <span>{gallery.length}장의 기록</span>
+          </div>
+          <div className="gallery-grid">
+            {gallery.map((image, index) => (
+              <button key={image.id} onClick={() => setGalleryIndex(index)} aria-label={`${p.name} 갤러리 ${index + 1}번 크게 보기`}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={`/api/profile-images/${encodeURIComponent(image.object_key)}`} alt={`${p.name} 활동 기록 ${index + 1}`} loading="lazy" />
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+      {galleryIndex !== null && (
+        <div className="lightbox" role="dialog" aria-modal="true" aria-label={`${p.name} 갤러리`} onClick={() => setGalleryIndex(null)}>
+          <button className="lightbox-close" onClick={() => setGalleryIndex(null)} aria-label="갤러리 닫기">×</button>
+          <button className="lightbox-nav prev" disabled={galleryIndex === 0} onClick={(e) => { e.stopPropagation(); setGalleryIndex(Math.max(0, galleryIndex - 1)); }} aria-label="이전 사진">←</button>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={`/api/profile-images/${encodeURIComponent(gallery[galleryIndex].object_key)}`} alt={`${p.name} 활동 기록 ${galleryIndex + 1}`} onClick={(e) => e.stopPropagation()} />
+          <button className="lightbox-nav next" disabled={galleryIndex === gallery.length - 1} onClick={(e) => { e.stopPropagation(); setGalleryIndex(Math.min(gallery.length - 1, galleryIndex + 1)); }} aria-label="다음 사진">→</button>
+          <span>{galleryIndex + 1} / {gallery.length}</span>
+        </div>
+      )}
       <section className="elapsed">
         <p>마지막 소식으로부터</p>
         <strong>{yearsText(p.last)}</strong>
@@ -957,6 +1001,34 @@ function Admin({
     }
     setTimeout(() => showToast(""), 2600);
   };
+  const uploadGallery = async (files?: FileList | null) => {
+    if (!files?.length) return;
+    const form = new FormData();
+    form.set("recordId", String(p.id));
+    Array.from(files).forEach((file) => form.append("files", file));
+    try {
+      const response = await fetch("/api/admin/gallery", { method: "POST", headers: { authorization: `Bearer ${token}` }, body: form });
+      const gallery = await response.json();
+      if (!response.ok) throw new Error(gallery.error);
+      update("gallery", gallery);
+      showToast("갤러리 사진을 추가했습니다.");
+    } catch {
+      showToast("사진을 추가하지 못했습니다. 최대 장수와 파일 크기를 확인해주세요.");
+    }
+    setTimeout(() => showToast(""), 2600);
+  };
+  const deleteGalleryImage = async (id: number) => {
+    if (!window.confirm("이 갤러리 사진을 삭제할까요?")) return;
+    try {
+      const response = await fetch("/api/admin/gallery", { method: "DELETE", headers: { "content-type": "application/json", authorization: `Bearer ${token}` }, body: JSON.stringify({ id }) });
+      if (!response.ok) throw new Error();
+      update("gallery", (p.gallery || []).filter((image) => image.id !== id));
+      showToast("갤러리 사진을 삭제했습니다.");
+    } catch {
+      showToast("사진을 삭제하지 못했습니다.");
+    }
+    setTimeout(() => showToast(""), 2200);
+  };
   if (!authenticated)
     return (
       <div className="page admin-page">
@@ -1113,7 +1185,7 @@ function Admin({
             </label>
             <div className="field-row">
               <label>
-                <span>분류</span>
+                <span>활동 형태</span>
                 <select
                   value={p.category}
                   onChange={(e) => update("category", e.target.value)}
@@ -1122,6 +1194,16 @@ function Admin({
                   <option>소속</option>
                 </select>
               </label>
+              <label>
+                <span>활동 상태 분류</span>
+                <select value={statusText(p)} onChange={(e) => update("activity_status", e.target.value)}>
+                  <option>공식적으로 활동 종료한 버튜버</option>
+                  <option>소식이 끊긴 버튜버</option>
+                  <option>무기한 휴식기에 들어간 버튜버</option>
+                </select>
+              </label>
+            </div>
+            <div className="field-row">
               <label>
                 <span>표지 색상</span>
                 <div className="color-input">
@@ -1155,6 +1237,23 @@ function Admin({
                 />
               </div>
             </label>
+            <div className="gallery-admin">
+              <label>
+                <span>상세 갤러리 · 최대 10장 / 각 5MB</span>
+                <input type="file" multiple accept="image/jpeg,image/png,image/webp" onChange={(e) => { uploadGallery(e.target.files); e.currentTarget.value = ""; }} />
+              </label>
+              {(p.gallery || []).length > 0 && (
+                <div className="gallery-admin-grid">
+                  {(p.gallery || []).map((image, index) => (
+                    <div key={image.id}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={`/api/profile-images/${encodeURIComponent(image.object_key)}`} alt={`갤러리 ${index + 1}`} />
+                      <button onClick={() => deleteGalleryImage(image.id)} aria-label={`갤러리 ${index + 1} 삭제`}>삭제</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </section>
       </div>

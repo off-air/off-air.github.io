@@ -67,3 +67,22 @@ body{background-image:linear-gradient(rgba(255,255,255,.012) 1px,transparent 1px
 @media(max-width:900px){.card-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:720px){.page-size{border-top:1px solid var(--line)}.view-switch{height:48px;border-left:0;border-top:1px solid var(--line);justify-content:flex-end}.card-grid.list-view .record-card{grid-template-columns:110px 1fr}.card-grid.list-view .portrait{min-height:190px}.card-grid.list-view .card-body{padding:20px}.card-grid.list-view .note{display:none}.profile-upload>div{grid-template-columns:1fr}.profile-upload .portrait{height:220px}}
 @media(max-width:720px){.card-grid{grid-template-columns:1fr}.danger{min-height:34px;padding:0 12px}}
+.status-badge{display:inline-block;margin-top:12px;padding:5px 8px;border:1px solid color-mix(in srgb,var(--blue) 55%,var(--line));color:var(--blue);font-size:10px;line-height:1.3}
+.detail-status{margin:0 0 24px}
+.record-gallery{padding:85px 0;border-top:1px solid var(--line)}
+.gallery-heading{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:30px}
+.gallery-heading h2{margin:0;font:400 32px Georgia,'Noto Serif KR',serif}
+.gallery-heading>span{color:var(--muted);font-size:11px}
+.gallery-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.gallery-grid button{height:240px;overflow:hidden;border:1px solid var(--line);background:var(--card)}
+.gallery-grid img,.gallery-admin-grid img{width:100%;height:100%;object-fit:cover;transition:transform .2s}
+.gallery-grid button:hover img{transform:scale(1.02)}
+.lightbox{position:fixed;inset:0;z-index:100;background:#080a09ee;display:grid;place-items:center;padding:60px 90px}
+.lightbox>img{max-width:100%;max-height:calc(100vh - 120px);object-fit:contain}
+.lightbox-close,.lightbox-nav{position:absolute;color:#f2eee6;font-size:30px}
+.lightbox-close{right:28px;top:18px}.lightbox-nav{top:50%;transform:translateY(-50%)}.lightbox-nav.prev{left:25px}.lightbox-nav.next{right:25px}.lightbox-nav:disabled{opacity:.2}.lightbox>span{position:absolute;bottom:20px;color:#b8b3aa;font-size:11px}
+.gallery-admin{padding-top:22px;border-top:1px solid var(--line)}
+.gallery-admin-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:15px}
+.gallery-admin-grid>div{height:100px;position:relative;border:1px solid var(--line)}
+.gallery-admin-grid button{position:absolute;right:4px;bottom:4px;padding:5px 7px;background:#171918dd;color:#eee9df;font-size:9px}
+@media(max-width:720px){.gallery-grid{grid-template-columns:1fr 1fr}.gallery-grid button{height:165px}.record-gallery{padding:60px 0}.lightbox{padding:55px 45px}.gallery-admin-grid{grid-template-columns:repeat(3,1fr)}}
