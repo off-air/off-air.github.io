@@ -602,7 +602,7 @@ function Archive({
           ) : (
             <div className="empty">
               <b>찾는 기록이 없습니다.</b>
-              <p>다른 이름이나 키워드로 다시 찾아보세요.</p>
+              <p>검색어나 활동 상태 선택을 바꿔보세요.</p>
             </div>
           )}
           {pageCount > 1 && (
