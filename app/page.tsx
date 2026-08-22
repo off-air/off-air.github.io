@@ -1,51 +1,1137 @@
-'use client';
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+"use client";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
-type View = 'home'|'detail'|'about'|'submit'|'admin';
-type Person = { id:number; name:string; handle:string; initial:string; color:string; debut:string; last:string; category:string; note:string; bio:string; tags:string[]; memories:number; published?:boolean|number };
+type View = "home" | "detail" | "about" | "submit" | "admin" | "privacy";
+type Person = {
+  id: number;
+  name: string;
+  handle: string;
+  initial: string;
+  color: string;
+  debut: string;
+  last: string;
+  category: string;
+  note: string;
+  bio: string;
+  tags: string[];
+  memories: number;
+  published?: boolean | number;
+};
+type Submission = {
+  id: number;
+  submission_type: string;
+  creator_name: string;
+  channel_url: string;
+  message: string;
+  source_url?: string;
+  status: string;
+  created_at: string;
+};
 
 const originalPeople: Person[] = [
-  {id:1,name:'유노하라 모리',handle:'@morino_yuno',initial:'森',color:'#879487',debut:'2020. 05. 12',last:'2023. 08. 17',category:'개인',note:'숲의 밤을 닮은 목소리로, 늦은 시간의 이야기를 건넸습니다.',bio:'잔잔한 게임과 심야 잡담을 중심으로 활동했습니다. 별일 없던 하루도 특별한 기록으로 남기는 따뜻한 방송을 이어갔습니다.',tags:['잡담','게임','심야방송'],memories:248},
-  {id:2,name:'아마세 루카',handle:'@amase_luca',initial:'流',color:'#718096',debut:'2019. 02. 24',last:'2022. 11. 03',category:'소속',note:'노래와 그림, 조용한 잡담 방송의 순간들이 남아 있습니다.',bio:'직접 그린 그림과 어쿠스틱 노래를 함께 나누던 크리에이터입니다. 계절마다 작은 온라인 전시를 열었습니다.',tags:['노래','그림','잡담'],memories:391},
-  {id:3,name:'호시노 네네',handle:'@nene_starlit',initial:'星',color:'#9290a1',debut:'2021. 07. 07',last:'2024. 01. 21',category:'개인',note:'별을 읽고 게임을 하며, 새벽의 시간을 함께 보냈습니다.',bio:'천문 이야기를 곁들인 게임 방송으로 알려졌습니다. 매주 일요일에는 시청자와 한 주의 밤하늘을 돌아보았습니다.',tags:['게임','천문','라디오'],memories:174},
-  {id:4,name:'사사키 유라',handle:'@yura_sasaki',initial:'結',color:'#9c8f83',debut:'2018. 10. 09',last:'2021. 06. 14',category:'소속',note:'작은 노래와 다정한 인사로 수많은 저녁을 이어주었습니다.',bio:'짧은 노래 방송과 사연 라디오를 진행했습니다. 방송을 끝낼 때마다 “오늘도 잘 머물렀어요”라는 인사를 남겼습니다.',tags:['노래','라디오','사연'],memories:526},
-  {id:5,name:'미즈키 아오',handle:'@ao_mizuki',initial:'水',color:'#7f9296',debut:'2022. 03. 30',last:'2024. 09. 02',category:'개인',note:'느린 게임과 긴 이야기를 좋아했던 푸른 목소리의 기록입니다.',bio:'인디 게임을 천천히 플레이하며 장면과 음악을 오래 이야기했습니다. 방송 후 남긴 짧은 감상문도 함께 기억됩니다.',tags:['인디게임','리뷰','잡담'],memories:119},
-  {id:6,name:'코하루 린',handle:'@koharu_rin',initial:'春',color:'#a09187',debut:'2020. 04. 18',last:'2023. 03. 28',category:'소속',note:'봄처럼 가벼운 웃음으로 평범한 하루를 환하게 만들었습니다.',bio:'리듬 게임과 밝은 아침 방송을 중심으로 활동했습니다. 팬들이 보낸 하루의 작은 목표를 함께 응원했습니다.',tags:['리듬게임','아침방송','잡담'],memories:307},
-  {id:7,name:'츠키시로 레이',handle:'@rei_tsukishiro',initial:'月',color:'#858b99',debut:'2019. 12. 01',last:'2022. 08. 19',category:'개인',note:'낮은 목소리로 읽어주던 이야기와 달빛 같은 음악이 남았습니다.',bio:'고전 문학 낭독과 피아노 연주를 결합한 방송을 선보였습니다. 월말마다 한 편의 긴 이야기를 완독했습니다.',tags:['낭독','피아노','문학'],memories:462},
-  {id:8,name:'나나세 토와',handle:'@towa_nanase',initial:'永',color:'#8c968a',debut:'2021. 09. 17',last:'2024. 05. 11',category:'개인',note:'여행하지 않는 여행 방송, 지도 위의 수많은 밤을 기억합니다.',bio:'온라인 지도와 시청자의 사연으로 세계를 걷는 독특한 방송을 만들었습니다. 매 방송마다 한 장의 엽서를 남겼습니다.',tags:['여행','지도','사연'],memories:201},
+  {
+    id: 1,
+    name: "유노하라 모리",
+    handle: "@morino_yuno",
+    initial: "森",
+    color: "#879487",
+    debut: "2020. 05. 12",
+    last: "2023. 08. 17",
+    category: "개인",
+    note: "숲의 밤을 닮은 목소리로, 늦은 시간의 이야기를 건넸습니다.",
+    bio: "잔잔한 게임과 심야 잡담을 중심으로 활동했습니다. 별일 없던 하루도 특별한 기록으로 남기는 따뜻한 방송을 이어갔습니다.",
+    tags: ["잡담", "게임", "심야방송"],
+    memories: 248,
+  },
+  {
+    id: 2,
+    name: "아마세 루카",
+    handle: "@amase_luca",
+    initial: "流",
+    color: "#718096",
+    debut: "2019. 02. 24",
+    last: "2022. 11. 03",
+    category: "소속",
+    note: "노래와 그림, 조용한 잡담 방송의 순간들이 남아 있습니다.",
+    bio: "직접 그린 그림과 어쿠스틱 노래를 함께 나누던 크리에이터입니다. 계절마다 작은 온라인 전시를 열었습니다.",
+    tags: ["노래", "그림", "잡담"],
+    memories: 391,
+  },
+  {
+    id: 3,
+    name: "호시노 네네",
+    handle: "@nene_starlit",
+    initial: "星",
+    color: "#9290a1",
+    debut: "2021. 07. 07",
+    last: "2024. 01. 21",
+    category: "개인",
+    note: "별을 읽고 게임을 하며, 새벽의 시간을 함께 보냈습니다.",
+    bio: "천문 이야기를 곁들인 게임 방송으로 알려졌습니다. 매주 일요일에는 시청자와 한 주의 밤하늘을 돌아보았습니다.",
+    tags: ["게임", "천문", "라디오"],
+    memories: 174,
+  },
+  {
+    id: 4,
+    name: "사사키 유라",
+    handle: "@yura_sasaki",
+    initial: "結",
+    color: "#9c8f83",
+    debut: "2018. 10. 09",
+    last: "2021. 06. 14",
+    category: "소속",
+    note: "작은 노래와 다정한 인사로 수많은 저녁을 이어주었습니다.",
+    bio: "짧은 노래 방송과 사연 라디오를 진행했습니다. 방송을 끝낼 때마다 “오늘도 잘 머물렀어요”라는 인사를 남겼습니다.",
+    tags: ["노래", "라디오", "사연"],
+    memories: 526,
+  },
+  {
+    id: 5,
+    name: "미즈키 아오",
+    handle: "@ao_mizuki",
+    initial: "水",
+    color: "#7f9296",
+    debut: "2022. 03. 30",
+    last: "2024. 09. 02",
+    category: "개인",
+    note: "느린 게임과 긴 이야기를 좋아했던 푸른 목소리의 기록입니다.",
+    bio: "인디 게임을 천천히 플레이하며 장면과 음악을 오래 이야기했습니다. 방송 후 남긴 짧은 감상문도 함께 기억됩니다.",
+    tags: ["인디게임", "리뷰", "잡담"],
+    memories: 119,
+  },
+  {
+    id: 6,
+    name: "코하루 린",
+    handle: "@koharu_rin",
+    initial: "春",
+    color: "#a09187",
+    debut: "2020. 04. 18",
+    last: "2023. 03. 28",
+    category: "소속",
+    note: "봄처럼 가벼운 웃음으로 평범한 하루를 환하게 만들었습니다.",
+    bio: "리듬 게임과 밝은 아침 방송을 중심으로 활동했습니다. 팬들이 보낸 하루의 작은 목표를 함께 응원했습니다.",
+    tags: ["리듬게임", "아침방송", "잡담"],
+    memories: 307,
+  },
+  {
+    id: 7,
+    name: "츠키시로 레이",
+    handle: "@rei_tsukishiro",
+    initial: "月",
+    color: "#858b99",
+    debut: "2019. 12. 01",
+    last: "2022. 08. 19",
+    category: "개인",
+    note: "낮은 목소리로 읽어주던 이야기와 달빛 같은 음악이 남았습니다.",
+    bio: "고전 문학 낭독과 피아노 연주를 결합한 방송을 선보였습니다. 월말마다 한 편의 긴 이야기를 완독했습니다.",
+    tags: ["낭독", "피아노", "문학"],
+    memories: 462,
+  },
+  {
+    id: 8,
+    name: "나나세 토와",
+    handle: "@towa_nanase",
+    initial: "永",
+    color: "#8c968a",
+    debut: "2021. 09. 17",
+    last: "2024. 05. 11",
+    category: "개인",
+    note: "여행하지 않는 여행 방송, 지도 위의 수많은 밤을 기억합니다.",
+    bio: "온라인 지도와 시청자의 사연으로 세계를 걷는 독특한 방송을 만들었습니다. 매 방송마다 한 장의 엽서를 남겼습니다.",
+    tags: ["여행", "지도", "사연"],
+    memories: 201,
+  },
 ];
 
-const daysAgo=(date:string)=>Math.floor((new Date('2026-08-22').getTime()-new Date(date.replaceAll('. ','-').replace('.','')).getTime())/86400000);
-const yearsText=(date:string)=>{const days=daysAgo(date); const y=Math.floor(days/365); const m=Math.floor((days%365)/30); return y ? `${y}년 ${m ? `${m}개월` : ''}`.trim() : `${m}개월`;};
+const daysAgo = (date: string) =>
+  Math.max(
+    0,
+    Math.floor(
+      (Date.now() -
+        new Date(date.replaceAll(". ", "-").replace(".", "")).getTime()) /
+        86400000,
+    ),
+  );
+const yearsText = (date: string) => {
+  const days = daysAgo(date);
+  const y = Math.floor(days / 365);
+  const m = Math.floor((days % 365) / 30);
+  return y ? `${y}년 ${m ? `${m}개월` : ""}`.trim() : `${m}개월`;
+};
 
-export default function Home(){
-  const [view,setView]=useState<View>('home'); const [people,setPeople]=useState(originalPeople); const [selected,setSelected]=useState<Person>(originalPeople[0]);
-  const [query,setQuery]=useState(''); const [sort,setSort]=useState('recent'); const [remembered,setRemembered]=useState<number[]>(()=>{if(typeof window==='undefined')return [];try{return JSON.parse(localStorage.getItem('yeojeonhi-remembered')||'[]')}catch{return []}}); const [toast,setToast]=useState('');
-  useEffect(()=>{fetch('/api/records').then(r=>{if(!r.ok)throw new Error();return r.json()}).then(setPeople).catch(()=>setToast('서버 기록을 불러오지 못해 샘플 기록을 표시합니다.'))},[]);
-  useEffect(()=>{window.scrollTo({top:0,behavior:'instant' as ScrollBehavior})},[view,selected.id]);
-  useEffect(()=>{const applyHash=()=>{const hash=location.hash.slice(1);const recordId=Number(hash.replace('record-',''));if(hash.startsWith('record-')&&recordId){const found=people.find(p=>p.id===recordId)||originalPeople.find(p=>p.id===recordId);if(found){setSelected(found);setView('detail')}}else if(['about','submit','admin'].includes(hash))setView(hash as View);else setView('home')};const timer=setTimeout(applyHash,0);addEventListener('hashchange',applyHash);return()=>{clearTimeout(timer);removeEventListener('hashchange',applyHash)}},[people]);
-  const go=(next:View)=>{if(next==='home'){setQuery('');setSort('recent')}setView(next);history.pushState(null,'',next==='home'?'#top':`#${next}`)};
-  const openPerson=(p:Person)=>{setSelected(p);setView('detail');history.pushState(null,'',`#record-${p.id}`)};
-  const remember=async(id:number)=>{const isAdding=!remembered.includes(id);const next=isAdding?[...remembered,id]:remembered.filter(x=>x!==id);let visitorId=localStorage.getItem('yeojeonhi-visitor');if(!visitorId){visitorId=crypto.randomUUID();localStorage.setItem('yeojeonhi-visitor',visitorId)}try{const response=await fetch('/api/remembrance',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({recordId:id,visitorId,remember:isAdding})});if(!response.ok)throw new Error();const data=await response.json();setPeople(current=>current.map(p=>p.id===id?{...p,memories:data.memories}:p));setSelected(current=>current.id===id?{...current,memories:data.memories}:current);setRemembered(next);localStorage.setItem('yeojeonhi-remembered',JSON.stringify(next));setToast(isAdding?'이 기록을 기억함에 담았습니다.':'기억함에서 꺼냈습니다.')}catch{setToast('저장하지 못했습니다. 잠시 후 다시 시도해주세요.')}setTimeout(()=>setToast(''),2200)};
-  const list=useMemo(()=>people.filter(p=>(p.name+p.handle+p.tags.join('')).toLowerCase().includes(query.toLowerCase())).sort((a,b)=>sort==='oldest'?daysAgo(b.last)-daysAgo(a.last):sort==='name'?a.name.localeCompare(b.name,'ko'):daysAgo(a.last)-daysAgo(b.last)),[people,query,sort]);
-  const submitForm=async(e:FormEvent)=>{e.preventDefault();const form=e.target as HTMLFormElement;const fields=new FormData(form);try{const response=await fetch('/api/submissions',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({type:fields.get('type'),name:fields.get('name'),channelUrl:fields.get('channelUrl'),message:fields.get('message'),sourceUrl:fields.get('sourceUrl'),website:fields.get('website')})});const data=await response.json();if(!response.ok)throw new Error(data.error);form.reset();setToast('제보가 안전하게 접수되었습니다.')}catch(error){setToast(error instanceof Error?error.message:'제보를 접수하지 못했습니다.')}setTimeout(()=>setToast(''),2600)};
-  return <main>
-    <Header view={view} go={go}/>{toast&&<div className="toast" role="status">{toast}</div>}
-    {view==='home'&&<><Hero/><Archive list={list} query={query} setQuery={setQuery} sort={sort} setSort={setSort} open={openPerson}/></>}
-    {view==='detail'&&<Detail person={selected} back={()=>go('home')} remembered={remembered.includes(selected.id)} remember={()=>remember(selected.id)}/>} 
-    {view==='about'&&<About/>}{view==='submit'&&<Submit onSubmit={submitForm}/>} {view==='admin'&&<Admin people={people} setPeople={setPeople} showToast={setToast}/>} 
-    <Footer go={go}/>
-  </main>
+export default function Home() {
+  const [view, setView] = useState<View>("home");
+  const [people, setPeople] = useState<Person[]>([]);
+  const [selected, setSelected] = useState<Person>(originalPeople[0]);
+  const [recordStatus, setRecordStatus] = useState<
+    "loading" | "ready" | "error"
+  >("loading");
+  const [query, setQuery] = useState("");
+  const [sort, setSort] = useState("recent");
+  const [remembered, setRemembered] = useState<number[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      return JSON.parse(localStorage.getItem("yeojeonhi-remembered") || "[]");
+    } catch {
+      return [];
+    }
+  });
+  const [toast, setToast] = useState("");
+  useEffect(() => {
+    fetch("/api/records")
+      .then((r) => {
+        if (!r.ok) throw new Error();
+        return r.json();
+      })
+      .then((data) => {
+        setPeople(data);
+        setRecordStatus("ready");
+      })
+      .catch(() => setRecordStatus("error"));
+  }, []);
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
+  }, [view, selected.id]);
+  useEffect(() => {
+    const applyPath = () => {
+      const path = location.pathname;
+      const match = path.match(/^\/records\/(\d+)$/);
+      if (match) {
+        const id = Number(match[1]);
+        const found = people.find((p) => p.id === id);
+        if (found) {
+          setSelected(found);
+          setView("detail");
+        } else if (recordStatus === "ready") setView("home");
+      } else if (["/about", "/submit", "/admin", "/privacy"].includes(path))
+        setView(path.slice(1) as View);
+      else setView("home");
+    };
+    const timer = setTimeout(applyPath, 0);
+    addEventListener("popstate", applyPath);
+    return () => {
+      clearTimeout(timer);
+      removeEventListener("popstate", applyPath);
+    };
+  }, [people, recordStatus]);
+  const go = (next: View) => {
+    if (next === "home") {
+      setQuery("");
+      setSort("recent");
+    }
+    setView(next);
+    history.pushState(null, "", next === "home" ? "/" : `/${next}`);
+  };
+  const openPerson = (p: Person) => {
+    setSelected(p);
+    setView("detail");
+    history.pushState(null, "", `/records/${p.id}`);
+  };
+  const remember = async (id: number) => {
+    const isAdding = !remembered.includes(id);
+    const next = isAdding
+      ? [...remembered, id]
+      : remembered.filter((x) => x !== id);
+    let visitorId = localStorage.getItem("yeojeonhi-visitor");
+    if (!visitorId) {
+      visitorId = crypto.randomUUID();
+      localStorage.setItem("yeojeonhi-visitor", visitorId);
+    }
+    try {
+      const response = await fetch("/api/remembrance", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ recordId: id, visitorId, remember: isAdding }),
+      });
+      if (!response.ok) throw new Error();
+      const data = await response.json();
+      setPeople((current) =>
+        current.map((p) =>
+          p.id === id ? { ...p, memories: data.memories } : p,
+        ),
+      );
+      setSelected((current) =>
+        current.id === id ? { ...current, memories: data.memories } : current,
+      );
+      setRemembered(next);
+      localStorage.setItem("yeojeonhi-remembered", JSON.stringify(next));
+      setToast(
+        isAdding ? "이 기록을 기억함에 담았습니다." : "기억함에서 꺼냈습니다.",
+      );
+    } catch {
+      setToast("저장하지 못했습니다. 잠시 후 다시 시도해주세요.");
+    }
+    setTimeout(() => setToast(""), 2200);
+  };
+  const list = useMemo(
+    () =>
+      people
+        .filter((p) =>
+          (p.name + p.handle + p.tags.join(""))
+            .toLowerCase()
+            .includes(query.toLowerCase()),
+        )
+        .sort((a, b) =>
+          sort === "oldest"
+            ? daysAgo(b.last) - daysAgo(a.last)
+            : sort === "name"
+              ? a.name.localeCompare(b.name, "ko")
+              : daysAgo(a.last) - daysAgo(b.last),
+        ),
+    [people, query, sort],
+  );
+  const submitForm = async (e: FormEvent) => {
+    e.preventDefault();
+    const form = e.target as HTMLFormElement;
+    const fields = new FormData(form);
+    try {
+      const response = await fetch("/api/submissions", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          type: fields.get("type"),
+          name: fields.get("name"),
+          channelUrl: fields.get("channelUrl"),
+          message: fields.get("message"),
+          sourceUrl: fields.get("sourceUrl"),
+          website: fields.get("website"),
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error);
+      form.reset();
+      setToast("제보가 안전하게 접수되었습니다.");
+    } catch (error) {
+      setToast(
+        error instanceof Error ? error.message : "제보를 접수하지 못했습니다.",
+      );
+    }
+    setTimeout(() => setToast(""), 2600);
+  };
+  return (
+    <main>
+      <Header view={view} go={go} />
+      {toast && (
+        <div className="toast" role="status">
+          {toast}
+        </div>
+      )}
+      {view === "home" && (
+        <>
+          <Hero />
+          <Archive
+            list={list}
+            status={recordStatus}
+            query={query}
+            setQuery={setQuery}
+            sort={sort}
+            setSort={setSort}
+            open={openPerson}
+          />
+        </>
+      )}
+      {view === "detail" && (
+        <Detail
+          person={selected}
+          back={() => go("home")}
+          remembered={remembered.includes(selected.id)}
+          remember={() => remember(selected.id)}
+        />
+      )}
+      {view === "about" && <About />}
+      {view === "submit" && <Submit onSubmit={submitForm} />}{" "}
+      {view === "admin" && (
+        <Admin people={people} setPeople={setPeople} showToast={setToast} />
+      )}{" "}
+      {view === "privacy" && <Privacy />}
+      <Footer go={go} />
+    </main>
+  );
 }
 
-function Header({view,go}:{view:View;go:(v:View)=>void}){return <header className="site-header"><button className="wordmark" onClick={()=>go('home')}>여전히<span>,</span></button><nav aria-label="주요 메뉴"><button className={view==='home'||view==='detail'?'active':''} onClick={()=>go('home')}>기록</button><button className={view==='about'?'active':''} onClick={()=>go('about')}>소개</button><button className={view==='submit'?'active':''} onClick={()=>go('submit')}>제보</button></nav></header>}
-function Hero(){return <section className="hero" id="top"><p className="eyebrow">A quiet archive of remembered voices</p><h1>마지막 방송이 지나간 뒤에도<br/><em>남아 있는 기록이 있습니다.</em></h1><p className="hero-copy">오래도록 소식이 닿지 않는 버추얼 크리에이터들의<br className="desktop"/> 활동과, 그들을 기억하는 마음을 조용히 기록합니다.</p><a className="scroll-link" href="#records"><span>기록 둘러보기</span><i>↓</i></a></section>}
-function Archive({list,query,setQuery,sort,setSort,open}:{list:Person[];query:string;setQuery:(v:string)=>void;sort:string;setSort:(v:string)=>void;open:(p:Person)=>void}){return <section className="records" id="records"><div className="section-heading"><div><p className="section-no">01 — ARCHIVE</p><h2>남아 있는 기록</h2></div><p>최근 확인된 활동을 기준으로 정리했습니다.</p></div><div className="archive-tools"><label className="search"><span>⌕</span><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="이름, 활동명, 키워드로 찾기" aria-label="기록 검색"/>{query&&<button onClick={()=>setQuery('')} aria-label="검색어 지우기">×</button>}</label><label className="sort">정렬<select value={sort} onChange={e=>setSort(e.target.value)}><option value="recent">최근 활동순</option><option value="oldest">오래된 기록순</option><option value="name">이름순</option></select></label></div><p className="result-count">기록 {list.length}건</p>{list.length?<div className="card-grid">{list.map(p=><Card key={p.id} p={p} open={()=>open(p)}/>)}</div>:<div className="empty"><b>찾는 기록이 없습니다.</b><p>다른 이름이나 키워드로 다시 찾아보세요.</p></div>}<p className="fiction-note">※ 이 프로토타입의 인물과 활동 기록은 모두 화면 시연을 위한 가상 데이터입니다.</p></section>}
-function Portrait({p,large=false}:{p:Person;large?:boolean}){return <div className={`portrait ${large?'large':''}`} style={{'--portrait':p.color} as React.CSSProperties}><span>{p.initial}</span><small>archive portrait · sample</small></div>}
-function Card({p,open}:{p:Person;open:()=>void}){return <article className="record-card" onClick={open} tabIndex={0} onKeyDown={e=>{if(e.key==='Enter')open()}}><Portrait p={p}/><div className="card-body"><div className="identity"><div><h3>{p.name}</h3><p>{p.handle}</p></div><button onClick={e=>{e.stopPropagation();open()}}>기록 보기 ↗</button></div><p className="note">{p.note}</p><div className="last-seen"><span>마지막 활동</span><strong>{p.last}</strong></div></div></article>}
-function Detail({person:p,back,remembered,remember}:{person:Person;back:()=>void;remembered:boolean;remember:()=>void}){return <div className="page detail-page"><button className="back" onClick={back}>← 기록 목록으로</button><section className="detail-hero"><Portrait p={p} large/><div className="detail-intro"><p className="eyebrow">ARCHIVE NO. {String(p.id).padStart(3,'0')}</p><h1>{p.name}</h1><p className="handle">{p.handle}</p><p className="lead">{p.note}</p><button className={`remember ${remembered?'saved':''}`} onClick={remember} aria-pressed={remembered}><span>{remembered?'●':'○'}</span>기억하고 있어요</button><small>선택 여부는 이 기기에, 전체 기억 수는 서버에 저장됩니다.</small></div></section><section className="timeline"><div className="time-block"><span>활동 시작</span><strong>{p.debut}</strong></div><div className="time-line"><i/></div><div className="time-block right"><span>마지막 확인</span><strong>{p.last}</strong></div></section><section className="detail-body"><div><p className="section-no">02 — RECORD</p><h2>기억하고 있는 활동</h2></div><div className="prose"><p>{p.bio}</p><blockquote>“{p.note}”</blockquote><div className="tags">{p.tags.map(t=><span key={t}>#{t}</span>)}</div></div></section><section className="elapsed"><p>마지막 소식으로부터</p><strong>{yearsText(p.last)}</strong><span>정확히 {daysAgo(p.last).toLocaleString('ko-KR')}일이 흘렀습니다.</span></section><section className="community-memory"><span>이 기록을 기억하는 마음</span><strong>{p.memories.toLocaleString('ko-KR')}</strong><p>숫자는 크기를 겨루기 위한 것이 아니라,<br/>누군가 기억하고 있다는 작은 표시입니다.</p></section></div>}
-function PageTitle({no,title,children}:{no:string;title:string;children:React.ReactNode}){return <div className="page-title"><p className="section-no">{no}</p><h1>{title}</h1><p>{children}</p></div>}
-function About(){return <div className="page"><PageTitle no="ABOUT — YEOJEONHI" title="기억하는 일을 기록합니다.">‘여전히,’는 멈춘 활동을 판단하지 않고,<br/>그곳에 남아 있는 시간과 마음을 정리하는 작은 기록관입니다.</PageTitle><section className="manifesto"><div className="big-quote">“</div><p>사라졌다고 말하지 않습니다.<br/>마지막이라고 단정하지 않습니다.<br/><em>그저, 우리가 기억하고 있는 시간을 남깁니다.</em></p></section><section className="principles"><div><p className="section-no">01 — PRINCIPLE</p><h2>우리가 지키는 것</h2></div><div className="principle-list"><article><b>01</b><h3>사실에 가까운 기록</h3><p>공개적으로 확인할 수 있는 활동만 기록하며, 추측이나 사생활에 관한 정보는 싣지 않습니다.</p></article><article><b>02</b><h3>조용한 거리</h3><p>활동 중단을 사건화하거나 흥밋거리로 만들지 않습니다. 당사자의 결정을 가장 먼저 존중합니다.</p></article><article><b>03</b><h3>수정될 권리</h3><p>당사자나 관계자의 요청이 있다면 기록을 수정하거나 비공개로 전환합니다.</p></article></div></section><section className="about-note"><h2>이름에 대하여</h2><p>“여전히”는 시간이 지났어도 남아 있는 상태를 뜻합니다.<br/>방송은 멈췄을지라도, 누군가의 기억 안에서는 여전히 이어지고 있습니다.</p></section></div>}
-function Submit({onSubmit}:{onSubmit:(e:FormEvent)=>void}){return <div className="page"><PageTitle no="SUBMIT — A RECORD" title="기억을 건네주세요.">새로운 기록, 정확하지 않은 정보, 다시 시작된 활동.<br/>알려주시면 확인한 뒤 조심스럽게 반영하겠습니다.</PageTitle><section className="form-wrap"><div className="form-aside"><span>제보 전 확인해주세요</span><ul><li>공개된 활동 정보만 보내주세요.</li><li>개인 연락처나 사적인 정보는 적지 말아주세요.</li><li>확인을 위한 출처 링크를 함께 남겨주세요.</li></ul><p>접수된 내용은 공개되지 않으며,<br/>관리자가 확인한 뒤 기록에 반영합니다.</p></div><form onSubmit={onSubmit}><label className="hp-field" aria-hidden="true">웹사이트<input name="website" tabIndex={-1} autoComplete="off"/></label><div className="field-row"><label><span>제보 유형</span><select name="type" required defaultValue=""><option value="" disabled>선택해주세요</option><option>새 기록 제안</option><option>정보 수정</option><option>활동 재개</option><option>비공개 요청</option></select></label><label><span>활동명</span><input name="name" required placeholder="기록할 이름"/></label></div><label><span>채널 또는 계정 주소</span><input name="channelUrl" type="url" required placeholder="https://"/></label><label><span>전하고 싶은 내용</span><textarea name="message" required maxLength={4000} rows={7} placeholder="확인이 필요한 내용을 차분히 적어주세요."/></label><label><span>확인 가능한 출처</span><input name="sourceUrl" type="url" placeholder="공식 채널, 게시물 등의 주소"/></label><label className="checkbox"><input type="checkbox" required/><span>개인정보가 아닌 공개된 정보임을 확인했습니다.</span></label><button className="primary" type="submit">제보 보내기 <span>→</span></button></form></section></div>}
-function Admin({people,setPeople,showToast}:{people:Person[];setPeople:(p:Person[])=>void;showToast:(s:string)=>void}){const [active,setActive]=useState(people[0].id);const [token,setToken]=useState('');const [authenticated,setAuthenticated]=useState(false);const p=people.find(x=>x.id===active)||people[0];const update=(key:keyof Person,val:Person[keyof Person])=>setPeople(people.map(x=>x.id===active?{...x,[key]:val} as Person:x));const authenticate=async()=>{try{const response=await fetch('/api/admin/records',{headers:{authorization:`Bearer ${token}`}});if(!response.ok)throw new Error();const records=await response.json();setPeople(records);setAuthenticated(true);showToast('관리자 인증이 완료되었습니다.')}catch{showToast('관리자 키가 올바르지 않습니다.')}setTimeout(()=>showToast(''),2200)};const save=async()=>{try{const response=await fetch('/api/admin/records',{method:'PUT',headers:{'content-type':'application/json',authorization:`Bearer ${token}`},body:JSON.stringify(p)});if(!response.ok)throw new Error();showToast('변경 사항을 서버에 저장했습니다.')}catch{showToast('저장하지 못했습니다. 다시 인증해주세요.');setAuthenticated(false)}setTimeout(()=>showToast(''),2400)};if(!authenticated)return <div className="page admin-page"><PageTitle no="ADMIN — SECURE" title="관리자 확인">관리자 키를 확인한 뒤에만 기록 편집 화면이 표시됩니다.</PageTitle><div className="admin-login"><label><span>관리자 키</span><input type="password" value={token} onChange={e=>setToken(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')authenticate()}} placeholder="관리자 키 입력" autoComplete="current-password"/></label><button className="primary" onClick={authenticate}>관리 화면 열기</button><p>관리자 키는 브라우저에 저장되지 않습니다.</p></div></div>;return <div className="page admin-page"><PageTitle no="ADMIN — SECURE" title="기록 관리">인증된 관리자만 공개 기록을 편집할 수 있습니다.</PageTitle><div className="admin-grid"><aside><div className="admin-side-title"><b>전체 기록</b><span>{people.length}</span></div>{people.map(x=><button className={x.id===active?'active':''} onClick={()=>setActive(x.id)} key={x.id}><i style={{background:x.color}}>{x.initial}</i><span><b>{x.name}</b><small>{x.handle}</small></span><em>{Boolean(x.published)?'공개':'비공개'}</em></button>)}</aside><section className="editor"><div className="editor-head"><div><span>ARCHIVE NO. {String(p.id).padStart(3,'0')}</span><h2>{p.name} 편집</h2></div><div><button className="secondary" onClick={()=>authenticate()}>서버 값 복원</button><button className="primary" onClick={save}>서버 저장</button></div></div><div className="status-line"><span>공개 상태</span><label className="switch"><input type="checkbox" checked={Boolean(p.published)} onChange={e=>update('published',e.target.checked)}/><i/></label><b>{Boolean(p.published)?'사이트에 공개':'비공개로 보관'}</b></div><div className="editor-form"><div className="field-row"><label><span>활동명</span><input value={p.name} onChange={e=>update('name',e.target.value)}/></label><label><span>활동 계정</span><input value={p.handle} onChange={e=>update('handle',e.target.value)}/></label></div><div className="field-row"><label><span>활동 시작</span><input value={p.debut} onChange={e=>update('debut',e.target.value)}/></label><label><span>마지막 확인</span><input value={p.last} onChange={e=>update('last',e.target.value)}/></label></div><label><span>목록 소개</span><textarea rows={3} value={p.note} onChange={e=>update('note',e.target.value)}/></label><label><span>상세 기록</span><textarea rows={6} value={p.bio} onChange={e=>update('bio',e.target.value)}/></label><div className="field-row"><label><span>분류</span><select value={p.category} onChange={e=>update('category',e.target.value)}><option>개인</option><option>소속</option></select></label><label><span>표지 색상</span><div className="color-input"><input type="color" value={p.color} onChange={e=>update('color',e.target.value)}/><code>{p.color}</code></div></label></div></div></section></div></div>}
-function Footer({go}:{go:(v:View)=>void}){return <footer><button onClick={()=>go('home')}>여전히,</button><p>기억은 오래 머무르는 일이기도 합니다.</p><div><button onClick={()=>go('about')}>운영 원칙</button><button onClick={()=>go('submit')}>기록 제보</button><button onClick={()=>go('admin')}>관리</button><small>© 2026 YEOJEONHI ARCHIVE</small></div></footer>}
+function Header({ view, go }: { view: View; go: (v: View) => void }) {
+  return (
+    <header className="site-header">
+      <button className="wordmark" onClick={() => go("home")}>
+        여전히<span>,</span>
+      </button>
+      <nav aria-label="주요 메뉴">
+        <button
+          className={view === "home" || view === "detail" ? "active" : ""}
+          onClick={() => go("home")}
+        >
+          기록
+        </button>
+        <button
+          className={view === "about" ? "active" : ""}
+          onClick={() => go("about")}
+        >
+          소개
+        </button>
+        <button
+          className={view === "submit" ? "active" : ""}
+          onClick={() => go("submit")}
+        >
+          제보
+        </button>
+      </nav>
+    </header>
+  );
+}
+function Hero() {
+  return (
+    <section className="hero" id="top">
+      <p className="eyebrow">A quiet archive of remembered voices</p>
+      <h1>
+        마지막 방송이 지나간 뒤에도
+        <br />
+        <em>남아 있는 기록이 있습니다.</em>
+      </h1>
+      <p className="hero-copy">
+        오래도록 소식이 닿지 않는 버추얼 크리에이터들의
+        <br className="desktop" /> 활동과, 그들을 기억하는 마음을 조용히
+        기록합니다.
+      </p>
+      <a className="scroll-link" href="#records">
+        <span>기록 둘러보기</span>
+        <i>↓</i>
+      </a>
+    </section>
+  );
+}
+function Archive({
+  list,
+  status,
+  query,
+  setQuery,
+  sort,
+  setSort,
+  open,
+}: {
+  list: Person[];
+  status: "loading" | "ready" | "error";
+  query: string;
+  setQuery: (v: string) => void;
+  sort: string;
+  setSort: (v: string) => void;
+  open: (p: Person) => void;
+}) {
+  return (
+    <section className="records" id="records">
+      <div className="section-heading">
+        <div>
+          <p className="section-no">01 — ARCHIVE</p>
+          <h2>남아 있는 기록</h2>
+        </div>
+        <p>최근 확인된 활동을 기준으로 정리했습니다.</p>
+      </div>
+      {status === "loading" ? (
+        <div className="empty" role="status">
+          <b>기록을 불러오고 있습니다.</b>
+          <p>잠시만 기다려주세요.</p>
+        </div>
+      ) : status === "error" ? (
+        <div className="empty" role="alert">
+          <b>기록을 불러올 수 없습니다.</b>
+          <p>잠시 후 페이지를 새로고침해주세요.</p>
+          <button className="secondary" onClick={() => location.reload()}>
+            다시 시도
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="archive-tools">
+            <label className="search">
+              <span>⌕</span>
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="이름, 활동명, 키워드로 찾기"
+                aria-label="기록 검색"
+              />
+              {query && (
+                <button onClick={() => setQuery("")} aria-label="검색어 지우기">
+                  ×
+                </button>
+              )}
+            </label>
+            <label className="sort">
+              정렬
+              <select value={sort} onChange={(e) => setSort(e.target.value)}>
+                <option value="recent">최근 활동순</option>
+                <option value="oldest">오래된 기록순</option>
+                <option value="name">이름순</option>
+              </select>
+            </label>
+          </div>
+          <p className="result-count">기록 {list.length}건</p>
+          {list.length ? (
+            <div className="card-grid">
+              {list.map((p) => (
+                <Card key={p.id} p={p} open={() => open(p)} />
+              ))}
+            </div>
+          ) : (
+            <div className="empty">
+              <b>찾는 기록이 없습니다.</b>
+              <p>다른 이름이나 키워드로 다시 찾아보세요.</p>
+            </div>
+          )}
+          <p className="fiction-note">
+            ※ 이 프로토타입의 인물과 활동 기록은 모두 화면 시연을 위한 가상
+            데이터입니다.
+          </p>
+        </>
+      )}
+    </section>
+  );
+}
+function Portrait({ p, large = false }: { p: Person; large?: boolean }) {
+  return (
+    <div
+      className={`portrait ${large ? "large" : ""}`}
+      style={{ "--portrait": p.color } as React.CSSProperties}
+    >
+      <span>{p.initial}</span>
+      <small>archive portrait · sample</small>
+    </div>
+  );
+}
+function Card({ p, open }: { p: Person; open: () => void }) {
+  return (
+    <article
+      className="record-card"
+      onClick={open}
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") open();
+      }}
+    >
+      <Portrait p={p} />
+      <div className="card-body">
+        <div className="identity">
+          <div>
+            <h3>{p.name}</h3>
+            <p>{p.handle}</p>
+          </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              open();
+            }}
+          >
+            기록 보기 ↗
+          </button>
+        </div>
+        <p className="note">{p.note}</p>
+        <div className="last-seen">
+          <span>마지막 활동</span>
+          <strong>{p.last}</strong>
+        </div>
+      </div>
+    </article>
+  );
+}
+function Detail({
+  person: p,
+  back,
+  remembered,
+  remember,
+}: {
+  person: Person;
+  back: () => void;
+  remembered: boolean;
+  remember: () => void;
+}) {
+  return (
+    <div className="page detail-page">
+      <button className="back" onClick={back}>
+        ← 기록 목록으로
+      </button>
+      <section className="detail-hero">
+        <Portrait p={p} large />
+        <div className="detail-intro">
+          <p className="eyebrow">ARCHIVE NO. {String(p.id).padStart(3, "0")}</p>
+          <h1>{p.name}</h1>
+          <p className="handle">{p.handle}</p>
+          <p className="lead">{p.note}</p>
+          <button
+            className={`remember ${remembered ? "saved" : ""}`}
+            onClick={remember}
+            aria-pressed={remembered}
+          >
+            <span>{remembered ? "●" : "○"}</span>기억하고 있어요
+          </button>
+          <small>
+            선택 여부는 이 기기에, 전체 기억 수는 서버에 저장됩니다.
+          </small>
+        </div>
+      </section>
+      <section className="timeline">
+        <div className="time-block">
+          <span>활동 시작</span>
+          <strong>{p.debut}</strong>
+        </div>
+        <div className="time-line">
+          <i />
+        </div>
+        <div className="time-block right">
+          <span>마지막 확인</span>
+          <strong>{p.last}</strong>
+        </div>
+      </section>
+      <section className="detail-body">
+        <div>
+          <p className="section-no">02 — RECORD</p>
+          <h2>기억하고 있는 활동</h2>
+        </div>
+        <div className="prose">
+          <p>{p.bio}</p>
+          <blockquote>“{p.note}”</blockquote>
+          <div className="tags">
+            {p.tags.map((t) => (
+              <span key={t}>#{t}</span>
+            ))}
+          </div>
+        </div>
+      </section>
+      <section className="elapsed">
+        <p>마지막 소식으로부터</p>
+        <strong>{yearsText(p.last)}</strong>
+        <span>
+          정확히 {daysAgo(p.last).toLocaleString("ko-KR")}일이 흘렀습니다.
+        </span>
+      </section>
+      <section className="community-memory">
+        <span>이 기록을 기억하는 마음</span>
+        <strong>{p.memories.toLocaleString("ko-KR")}</strong>
+        <p>
+          숫자는 크기를 겨루기 위한 것이 아니라,
+          <br />
+          누군가 기억하고 있다는 작은 표시입니다.
+        </p>
+      </section>
+    </div>
+  );
+}
+function PageTitle({
+  no,
+  title,
+  children,
+}: {
+  no: string;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="page-title">
+      <p className="section-no">{no}</p>
+      <h1>{title}</h1>
+      <p>{children}</p>
+    </div>
+  );
+}
+function About() {
+  return (
+    <div className="page">
+      <PageTitle no="ABOUT — YEOJEONHI" title="기억하는 일을 기록합니다.">
+        ‘여전히,’는 멈춘 활동을 판단하지 않고,
+        <br />
+        그곳에 남아 있는 시간과 마음을 정리하는 작은 기록관입니다.
+      </PageTitle>
+      <section className="manifesto">
+        <div className="big-quote">“</div>
+        <p>
+          사라졌다고 말하지 않습니다.
+          <br />
+          마지막이라고 단정하지 않습니다.
+          <br />
+          <em>그저, 우리가 기억하고 있는 시간을 남깁니다.</em>
+        </p>
+      </section>
+      <section className="principles">
+        <div>
+          <p className="section-no">01 — PRINCIPLE</p>
+          <h2>우리가 지키는 것</h2>
+        </div>
+        <div className="principle-list">
+          <article>
+            <b>01</b>
+            <h3>사실에 가까운 기록</h3>
+            <p>
+              공개적으로 확인할 수 있는 활동만 기록하며, 추측이나 사생활에 관한
+              정보는 싣지 않습니다.
+            </p>
+          </article>
+          <article>
+            <b>02</b>
+            <h3>조용한 거리</h3>
+            <p>
+              활동 중단을 사건화하거나 흥밋거리로 만들지 않습니다. 당사자의
+              결정을 가장 먼저 존중합니다.
+            </p>
+          </article>
+          <article>
+            <b>03</b>
+            <h3>수정될 권리</h3>
+            <p>
+              당사자나 관계자의 요청이 있다면 기록을 수정하거나 비공개로
+              전환합니다.
+            </p>
+          </article>
+        </div>
+      </section>
+      <section className="about-note">
+        <h2>이름에 대하여</h2>
+        <p>
+          “여전히”는 시간이 지났어도 남아 있는 상태를 뜻합니다.
+          <br />
+          방송은 멈췄을지라도, 누군가의 기억 안에서는 여전히 이어지고 있습니다.
+        </p>
+      </section>
+    </div>
+  );
+}
+
+function Privacy() {
+  return (
+    <div className="page">
+      <PageTitle no="PRIVACY — DATA" title="조용하고 필요한 만큼만 저장합니다.">
+        사이트 운영에 필요한 최소한의 정보만 사용하며,
+        <br />
+        광고 추적이나 외부 판매에 이용하지 않습니다.
+      </PageTitle>
+      <section className="privacy-grid">
+        <article>
+          <b>01</b>
+          <h2>기억 선택</h2>
+          <p>
+            무작위 방문자 식별값과 기록 번호를 저장해 중복 집계를 줄입니다. 선택
+            여부는 브라우저에도 보관됩니다.
+          </p>
+        </article>
+        <article>
+          <b>02</b>
+          <h2>제보 내용</h2>
+          <p>
+            활동명, 공개 채널 주소, 제보 내용과 출처를 검토 목적으로 저장합니다.
+            개인 연락처는 요청하지 않습니다.
+          </p>
+        </article>
+        <article>
+          <b>03</b>
+          <h2>요청 제한</h2>
+          <p>
+            도배를 막기 위해 네트워크 주소를 복원할 수 없는 해시로 변환해 제한된
+            기간 동안 사용합니다.
+          </p>
+        </article>
+        <article>
+          <b>04</b>
+          <h2>수정과 삭제</h2>
+          <p>
+            당사자 또는 관계자의 요청이 확인되면 기록과 관련 제보를 수정하거나
+            비공개로 전환합니다.
+          </p>
+        </article>
+      </section>
+    </div>
+  );
+}
+function Submit({ onSubmit }: { onSubmit: (e: FormEvent) => void }) {
+  return (
+    <div className="page">
+      <PageTitle no="SUBMIT — A RECORD" title="기억을 건네주세요.">
+        새로운 기록, 정확하지 않은 정보, 다시 시작된 활동.
+        <br />
+        알려주시면 확인한 뒤 조심스럽게 반영하겠습니다.
+      </PageTitle>
+      <section className="form-wrap">
+        <div className="form-aside">
+          <span>제보 전 확인해주세요</span>
+          <ul>
+            <li>공개된 활동 정보만 보내주세요.</li>
+            <li>개인 연락처나 사적인 정보는 적지 말아주세요.</li>
+            <li>확인을 위한 출처 링크를 함께 남겨주세요.</li>
+          </ul>
+          <p>
+            접수된 내용은 공개되지 않으며,
+            <br />
+            관리자가 확인한 뒤 기록에 반영합니다.
+          </p>
+        </div>
+        <form onSubmit={onSubmit}>
+          <label className="hp-field" aria-hidden="true">
+            웹사이트
+            <input name="website" tabIndex={-1} autoComplete="off" />
+          </label>
+          <div className="field-row">
+            <label>
+              <span>제보 유형</span>
+              <select name="type" required defaultValue="">
+                <option value="" disabled>
+                  선택해주세요
+                </option>
+                <option>새 기록 제안</option>
+                <option>정보 수정</option>
+                <option>활동 재개</option>
+                <option>비공개 요청</option>
+              </select>
+            </label>
+            <label>
+              <span>활동명</span>
+              <input name="name" required placeholder="기록할 이름" />
+            </label>
+          </div>
+          <label>
+            <span>채널 또는 계정 주소</span>
+            <input
+              name="channelUrl"
+              type="url"
+              required
+              placeholder="https://"
+            />
+          </label>
+          <label>
+            <span>전하고 싶은 내용</span>
+            <textarea
+              name="message"
+              required
+              maxLength={4000}
+              rows={7}
+              placeholder="확인이 필요한 내용을 차분히 적어주세요."
+            />
+          </label>
+          <label>
+            <span>확인 가능한 출처</span>
+            <input
+              name="sourceUrl"
+              type="url"
+              placeholder="공식 채널, 게시물 등의 주소"
+            />
+          </label>
+          <label className="checkbox">
+            <input type="checkbox" required />
+            <span>개인정보가 아닌 공개된 정보임을 확인했습니다.</span>
+          </label>
+          <button className="primary" type="submit">
+            제보 보내기 <span>→</span>
+          </button>
+        </form>
+      </section>
+    </div>
+  );
+}
+function Admin({
+  people,
+  setPeople,
+  showToast,
+}: {
+  people: Person[];
+  setPeople: (p: Person[]) => void;
+  showToast: (s: string) => void;
+}) {
+  const [active, setActive] = useState(1);
+  const [token, setToken] = useState("");
+  const [authenticated, setAuthenticated] = useState(false);
+  const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const p =
+    people.find((x) => x.id === active) || people[0] || originalPeople[0];
+  const update = (key: keyof Person, val: Person[keyof Person]) =>
+    setPeople(
+      people.map((x) =>
+        x.id === active ? ({ ...x, [key]: val } as Person) : x,
+      ),
+    );
+  const authenticate = async () => {
+    try {
+      const headers = { authorization: `Bearer ${token}` };
+      const [recordsResponse, submissionsResponse] = await Promise.all([
+        fetch("/api/admin/records", { headers }),
+        fetch("/api/admin/submissions", { headers }),
+      ]);
+      if (!recordsResponse.ok || !submissionsResponse.ok) throw new Error();
+      const records = await recordsResponse.json();
+      const received = await submissionsResponse.json();
+      setPeople(records);
+      setSubmissions(received);
+      setAuthenticated(true);
+      showToast("관리자 인증이 완료되었습니다.");
+    } catch {
+      showToast("관리자 키가 올바르지 않습니다.");
+    }
+    setTimeout(() => showToast(""), 2200);
+  };
+  const save = async () => {
+    try {
+      const response = await fetch("/api/admin/records", {
+        method: "PUT",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(p),
+      });
+      if (!response.ok) throw new Error();
+      showToast("변경 사항을 서버에 저장했습니다.");
+    } catch {
+      showToast("저장하지 못했습니다. 다시 인증해주세요.");
+      setAuthenticated(false);
+    }
+    setTimeout(() => showToast(""), 2400);
+  };
+  if (!authenticated)
+    return (
+      <div className="page admin-page">
+        <PageTitle no="ADMIN — SECURE" title="관리자 확인">
+          관리자 키를 확인한 뒤에만 기록 편집 화면이 표시됩니다.
+        </PageTitle>
+        <div className="admin-login">
+          <label>
+            <span>관리자 키</span>
+            <input
+              type="password"
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") authenticate();
+              }}
+              placeholder="관리자 키 입력"
+              autoComplete="current-password"
+            />
+          </label>
+          <button className="primary" onClick={authenticate}>
+            관리 화면 열기
+          </button>
+          <p>관리자 키는 브라우저에 저장되지 않습니다.</p>
+        </div>
+      </div>
+    );
+  const updateSubmission = async (id: number, status: string) => {
+    try {
+      const response = await fetch("/api/admin/submissions", {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ id, status }),
+      });
+      if (!response.ok) throw new Error();
+      setSubmissions((current) =>
+        current.map((item) => (item.id === id ? { ...item, status } : item)),
+      );
+      showToast("제보 상태를 변경했습니다.");
+    } catch {
+      showToast("제보 상태를 변경하지 못했습니다.");
+    }
+    setTimeout(() => showToast(""), 2200);
+  };
+  return (
+    <div className="page admin-page">
+      <PageTitle no="ADMIN — SECURE" title="기록 관리">
+        인증된 관리자만 공개 기록을 편집할 수 있습니다.
+      </PageTitle>
+      <div className="admin-grid">
+        <aside>
+          <div className="admin-side-title">
+            <b>전체 기록</b>
+            <span>{people.length}</span>
+          </div>
+          {people.map((x) => (
+            <button
+              className={x.id === active ? "active" : ""}
+              onClick={() => setActive(x.id)}
+              key={x.id}
+            >
+              <i style={{ background: x.color }}>{x.initial}</i>
+              <span>
+                <b>{x.name}</b>
+                <small>{x.handle}</small>
+              </span>
+              <em>{Boolean(x.published) ? "공개" : "비공개"}</em>
+            </button>
+          ))}
+        </aside>
+        <section className="editor">
+          <div className="editor-head">
+            <div>
+              <span>ARCHIVE NO. {String(p.id).padStart(3, "0")}</span>
+              <h2>{p.name} 편집</h2>
+            </div>
+            <div>
+              <button className="secondary" onClick={() => authenticate()}>
+                서버 값 복원
+              </button>
+              <button className="primary" onClick={save}>
+                서버 저장
+              </button>
+            </div>
+          </div>
+          <div className="status-line">
+            <span>공개 상태</span>
+            <label className="switch">
+              <input
+                type="checkbox"
+                checked={Boolean(p.published)}
+                onChange={(e) => update("published", e.target.checked)}
+              />
+              <i />
+            </label>
+            <b>{Boolean(p.published) ? "사이트에 공개" : "비공개로 보관"}</b>
+          </div>
+          <div className="editor-form">
+            <div className="field-row">
+              <label>
+                <span>활동명</span>
+                <input
+                  value={p.name}
+                  onChange={(e) => update("name", e.target.value)}
+                />
+              </label>
+              <label>
+                <span>활동 계정</span>
+                <input
+                  value={p.handle}
+                  onChange={(e) => update("handle", e.target.value)}
+                />
+              </label>
+            </div>
+            <div className="field-row">
+              <label>
+                <span>활동 시작</span>
+                <input
+                  value={p.debut}
+                  onChange={(e) => update("debut", e.target.value)}
+                />
+              </label>
+              <label>
+                <span>마지막 확인</span>
+                <input
+                  value={p.last}
+                  onChange={(e) => update("last", e.target.value)}
+                />
+              </label>
+            </div>
+            <label>
+              <span>목록 소개</span>
+              <textarea
+                rows={3}
+                value={p.note}
+                onChange={(e) => update("note", e.target.value)}
+              />
+            </label>
+            <label>
+              <span>상세 기록</span>
+              <textarea
+                rows={6}
+                value={p.bio}
+                onChange={(e) => update("bio", e.target.value)}
+              />
+            </label>
+            <div className="field-row">
+              <label>
+                <span>분류</span>
+                <select
+                  value={p.category}
+                  onChange={(e) => update("category", e.target.value)}
+                >
+                  <option>개인</option>
+                  <option>소속</option>
+                </select>
+              </label>
+              <label>
+                <span>표지 색상</span>
+                <div className="color-input">
+                  <input
+                    type="color"
+                    value={p.color}
+                    onChange={(e) => update("color", e.target.value)}
+                  />
+                  <code>{p.color}</code>
+                </div>
+              </label>
+            </div>
+          </div>
+        </section>
+      </div>
+      <SubmissionQueue items={submissions} update={updateSubmission} />
+    </div>
+  );
+}
+
+function SubmissionQueue({
+  items,
+  update,
+}: {
+  items: Submission[];
+  update: (id: number, status: string) => void;
+}) {
+  return (
+    <section className="submission-queue">
+      <div className="section-heading">
+        <div>
+          <p className="section-no">SUBMISSIONS — REVIEW</p>
+          <h2>접수된 제보</h2>
+        </div>
+        <p>접수 {items.filter((item) => item.status === "pending").length}건</p>
+      </div>
+      {items.length ? (
+        <div className="submission-list">
+          {items.map((item) => (
+            <article key={item.id}>
+              <div>
+                <span>{item.submission_type}</span>
+                <time>
+                  {new Date(item.created_at).toLocaleDateString("ko-KR")}
+                </time>
+              </div>
+              <h3>{item.creator_name}</h3>
+              <p>{item.message}</p>
+              <div className="submission-links">
+                <a href={item.channel_url} target="_blank" rel="noreferrer">
+                  채널 확인 ↗
+                </a>
+                {item.source_url && (
+                  <a href={item.source_url} target="_blank" rel="noreferrer">
+                    출처 확인 ↗
+                  </a>
+                )}
+              </div>
+              <label>
+                <span>처리 상태</span>
+                <select
+                  value={item.status}
+                  onChange={(event) => update(item.id, event.target.value)}
+                >
+                  <option value="pending">확인 대기</option>
+                  <option value="reviewed">확인 완료</option>
+                  <option value="resolved">반영 완료</option>
+                </select>
+              </label>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <div className="empty">
+          <b>접수된 제보가 없습니다.</b>
+        </div>
+      )}
+    </section>
+  );
+}
+function Footer({ go }: { go: (v: View) => void }) {
+  return (
+    <footer>
+      <button onClick={() => go("home")}>여전히,</button>
+      <p>기억은 오래 머무르는 일이기도 합니다.</p>
+      <div>
+        <button onClick={() => go("about")}>운영 원칙</button>
+        <button onClick={() => go("submit")}>기록 제보</button>
+        <button onClick={() => go("privacy")}>데이터 안내</button>
+        <button onClick={() => go("admin")}>관리</button>
+        <small>© 2026 YEOJEONHI ARCHIVE</small>
+      </div>
+    </footer>
+  );
+}

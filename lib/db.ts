@@ -33,6 +33,7 @@ export async function allowRequest(request:Request,action:string,limit:number,wi
   const digest=await crypto.subtle.digest('SHA-256',bytes);
   const clientHash=Array.from(new Uint8Array(digest)).map(v=>v.toString(16).padStart(2,'0')).join('');
   const windowStart=Math.floor(Date.now()/1000/windowSeconds)*windowSeconds;
+  await db().prepare('DELETE FROM rate_limits WHERE window_start < ?').bind(Math.floor(Date.now()/1000)-604800).run();
   await db().prepare(`INSERT INTO rate_limits (action,client_hash,window_start,request_count) VALUES (?,?,?,1) ON CONFLICT(action,client_hash,window_start) DO UPDATE SET request_count=request_count+1`).bind(action,clientHash,windowStart).run();
   const row=await db().prepare('SELECT request_count FROM rate_limits WHERE action=? AND client_hash=? AND window_start=?').bind(action,clientHash,windowStart).first<{request_count:number}>();
   return (row?.request_count||0)<=limit;
