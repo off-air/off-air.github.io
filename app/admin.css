@@ -1,0 +1,4 @@
+.admin-auth { margin: 38px 0 0; padding: 20px 24px; border: 1px solid var(--line); background: #ebe7de; display: flex; align-items: flex-end; gap: 24px; }
+.admin-auth label { width: min(440px, 100%); }
+.admin-auth p { margin: 0 0 14px; color: var(--muted); font-size: 10px; }
+@media (max-width: 720px) { .admin-auth { align-items: stretch; flex-direction: column; gap: 10px; } .admin-auth p { margin: 0; } }
