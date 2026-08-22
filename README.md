@@ -3,7 +3,6 @@
 버추얼 크리에이터의 활동을 기억하고 보존하는 반응형 웹 아카이브입니다.
 
 - 공식 운영 주소: https://yeojeonhi-vtuber-archive.lununs.workers.dev
-- 미리보기 주소: https://yeojeonhi-vtuber-archive.lununs.chatgpt.site
 
 ## 운영 구조
 
@@ -11,7 +10,6 @@
 - 변경 사항은 GitHub Actions에서 검사한 뒤 개인 Cloudflare Worker에 배포합니다.
 - 기록·기억 집계·제보는 Cloudflare D1에, 프로필 및 갤러리 이미지는 Cloudflare R2에 저장합니다.
 - 코드 배포와 운영 데이터는 분리되어 있으므로 새 버전을 배포해도 기록과 이미지는 유지됩니다.
-- `.openai/hosting.json`은 ChatGPT Sites 미리보기 배포용으로 유지합니다.
 
 ## 실행
 
