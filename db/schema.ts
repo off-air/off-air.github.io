@@ -44,6 +44,14 @@ export const schemaStatements = [
     status TEXT NOT NULL DEFAULT 'pending',
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
+  `CREATE TABLE IF NOT EXISTS deleted_record_images (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    deletion_group TEXT NOT NULL,
+    record_name TEXT NOT NULL,
+    image_kind TEXT NOT NULL,
+    object_key TEXT NOT NULL UNIQUE,
+    deleted_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
   `CREATE TABLE IF NOT EXISTS rate_limits (
     action TEXT NOT NULL,
     client_hash TEXT NOT NULL,
@@ -54,5 +62,6 @@ export const schemaStatements = [
   `CREATE INDEX IF NOT EXISTS idx_records_published_last ON records(published, last_activity)`,
   `CREATE INDEX IF NOT EXISTS idx_record_gallery_record_order ON record_gallery(record_id, sort_order, id)`,
   `CREATE INDEX IF NOT EXISTS idx_submissions_status_created ON submissions(status, created_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_deleted_record_images_group ON deleted_record_images(deletion_group, deleted_at)`,
   `CREATE INDEX IF NOT EXISTS idx_rate_limits_window ON rate_limits(window_start)`,
 ];

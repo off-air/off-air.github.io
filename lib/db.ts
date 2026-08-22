@@ -8,7 +8,7 @@ let ready: Promise<void> | null = null;
 export function db(){ return runtime.DB; }
 export function profileImages(){ return runtime.PROFILE_IMAGES; }
 export function ensureDatabase(){
-  if(!ready) ready=(async()=>{await db().batch(schemaStatements.map(sql=>db().prepare(sql)));await ensureRecordColumns();await ensureGalleryColumns();await seed();})();
+  if(!ready) ready=(async()=>{await db().batch(schemaStatements.map(sql=>db().prepare(sql)));await ensureRecordColumns();await ensureGalleryColumns();await db().prepare("UPDATE submissions SET status='reviewed' WHERE status='resolved'").run();await seed();})();
   return ready;
 }
 async function ensureRecordColumns(){

@@ -31,6 +31,14 @@ type Submission = {
   status: string;
   created_at: string;
 };
+type DeletedImage = {
+  id: number;
+  deletion_group: string;
+  record_name: string;
+  image_kind: string;
+  object_key: string;
+  deleted_at: string;
+};
 
 const originalPeople: Person[] = [
   {
@@ -908,6 +916,7 @@ function Admin({
   const [token, setToken] = useState("");
   const [authenticated, setAuthenticated] = useState(false);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const [deletedImages, setDeletedImages] = useState<DeletedImage[]>([]);
   const p =
     people.find((x) => x.id === active) || people[0] || originalPeople[0];
   const update = (key: keyof Person, val: Person[keyof Person]) =>
@@ -919,15 +928,18 @@ function Admin({
   const authenticate = async () => {
     try {
       const headers = { authorization: `Bearer ${token}` };
-      const [recordsResponse, submissionsResponse] = await Promise.all([
+      const [recordsResponse, submissionsResponse, deletedImagesResponse] = await Promise.all([
         fetch("/api/admin/records", { headers }),
         fetch("/api/admin/submissions", { headers }),
+        fetch("/api/admin/deleted-images", { headers }),
       ]);
-      if (!recordsResponse.ok || !submissionsResponse.ok) throw new Error();
+      if (!recordsResponse.ok || !submissionsResponse.ok || !deletedImagesResponse.ok) throw new Error();
       const records = await recordsResponse.json();
       const received = await submissionsResponse.json();
+      const retainedImages = await deletedImagesResponse.json();
       setPeople(records);
       setSubmissions(received);
+      setDeletedImages(retainedImages);
       setAuthenticated(true);
       showToast("관리자 인증이 완료되었습니다.");
     } catch {
@@ -974,7 +986,7 @@ function Admin({
     setTimeout(() => showToast(""), 2400);
   };
   const deleteRecord = async () => {
-    if (!window.confirm(`“${p.name}” 기록을 삭제할까요?\n삭제한 기록은 복구할 수 없습니다.`)) return;
+    if (!window.confirm(`“${p.name}” 기록을 삭제할까요?\n기록은 복구할 수 없으며 이미지는 검토 보관함으로 이동합니다.`)) return;
     try {
       const response = await fetch("/api/admin/records", {
         method: "DELETE",
@@ -985,6 +997,8 @@ function Admin({
         body: JSON.stringify({ id: p.id }),
       });
       if (!response.ok) throw new Error();
+      const retainedResponse = await fetch("/api/admin/deleted-images", { headers: { authorization: `Bearer ${token}` } });
+      if (retainedResponse.ok) setDeletedImages(await retainedResponse.json());
       const remaining = people.filter((record) => record.id !== p.id);
       setPeople(remaining);
       if (remaining.length) setActive(remaining[0].id);
@@ -1093,6 +1107,22 @@ function Admin({
       showToast("제보 상태를 변경하지 못했습니다.");
     }
     setTimeout(() => showToast(""), 2200);
+  };
+  const purgeDeletedImages = async (deletionGroup: string) => {
+    if (!window.confirm("이 기록의 보관 이미지를 서버에서 영구 삭제할까요? 이 작업은 되돌릴 수 없습니다.")) return;
+    try {
+      const response = await fetch("/api/admin/deleted-images", {
+        method: "DELETE",
+        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+        body: JSON.stringify({ deletion_group: deletionGroup }),
+      });
+      if (!response.ok) throw new Error();
+      setDeletedImages((current) => current.filter((image) => image.deletion_group !== deletionGroup));
+      showToast("보관 이미지를 영구 삭제했습니다.");
+    } catch {
+      showToast("보관 이미지를 삭제하지 못했습니다.");
+    }
+    setTimeout(() => showToast(""), 2400);
   };
   return (
     <div className="page admin-page">
@@ -1275,7 +1305,7 @@ function Admin({
           </div>
         </section>
       </div>
-      <SubmissionQueue items={submissions} update={updateSubmission} />
+      <SubmissionQueue items={submissions} update={updateSubmission} deletedImages={deletedImages} purgeDeletedImages={purgeDeletedImages} />
     </div>
   );
 }
@@ -1283,11 +1313,15 @@ function Admin({
 function SubmissionQueue({
   items,
   update,
+  deletedImages,
+  purgeDeletedImages,
 }: {
   items: Submission[];
   update: (id: number, status: string) => void;
+  deletedImages: DeletedImage[];
+  purgeDeletedImages: (deletionGroup: string) => void;
 }) {
-  const [box, setBox] = useState<"inbox" | "completed">("inbox");
+  const [box, setBox] = useState<"inbox" | "completed" | "deleted-images">("inbox");
   const [submissionSort, setSubmissionSort] = useState<"newest" | "oldest" | "status">("newest");
   const pendingCount = items.filter((item) => item.status === "pending").length;
   const completedCount = items.length - pendingCount;
@@ -1298,30 +1332,57 @@ function SubmissionQueue({
       : submissionSort === "status"
         ? a.status.localeCompare(b.status)
         : new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  const deletedGroups = Object.values(deletedImages.reduce<Record<string, DeletedImage[]>>((groups, image) => {
+    (groups[image.deletion_group] ||= []).push(image);
+    return groups;
+  }, {}));
   return (
     <section className="submission-queue">
       <div className="section-heading">
         <div>
           <p className="section-no">SUBMISSIONS — REVIEW</p>
-          <h2>{box === "inbox" ? "접수된 제보" : "처리한 제보"}</h2>
+          <h2>{box === "inbox" ? "접수된 제보" : box === "completed" ? "처리한 제보" : "삭제 기록 이미지"}</h2>
         </div>
-        <p>{box === "inbox" ? `접수 ${pendingCount}건` : `완료 ${completedCount}건`}</p>
+        <p>{box === "inbox" ? `접수 ${pendingCount}건` : box === "completed" ? `완료 ${completedCount}건` : `보관 ${deletedGroups.length}건`}</p>
       </div>
       <div className="submission-tools">
         <div className="submission-tabs" role="tablist" aria-label="제보함 선택">
           <button className={box === "inbox" ? "active" : ""} onClick={() => setBox("inbox")} role="tab" aria-selected={box === "inbox"}>접수된 제보 <span>{pendingCount}</span></button>
           <button className={box === "completed" ? "active" : ""} onClick={() => setBox("completed")} role="tab" aria-selected={box === "completed"}>처리한 제보 <span>{completedCount}</span></button>
+          <button className={box === "deleted-images" ? "active" : ""} onClick={() => setBox("deleted-images")} role="tab" aria-selected={box === "deleted-images"}>삭제 기록 이미지 <span>{deletedGroups.length}</span></button>
         </div>
-        <label>
+        {box !== "deleted-images" && <label>
           정렬
           <select value={submissionSort} onChange={(event) => setSubmissionSort(event.target.value as "newest" | "oldest" | "status")}>
             <option value="newest">최신 접수순</option>
             <option value="oldest">오래된 접수순</option>
             <option value="status">처리 상태순</option>
           </select>
-        </label>
+        </label>}
       </div>
-      {visibleItems.length ? (
+      {box === "deleted-images" ? (
+        deletedGroups.length ? (
+          <div className="deleted-image-groups">
+            {deletedGroups.map((group) => (
+              <article key={group[0].deletion_group}>
+                <div className="deleted-image-head">
+                  <div><span>삭제된 기록</span><h3>{group[0].record_name}</h3><time>{new Date(group[0].deleted_at).toLocaleString("ko-KR")}</time></div>
+                  <button className="danger" onClick={() => purgeDeletedImages(group[0].deletion_group)}>전체 영구 삭제</button>
+                </div>
+                <div className="deleted-image-grid">
+                  {group.map((image) => (
+                    <figure key={image.id}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={`/api/profile-images/${encodeURIComponent(image.object_key)}`} alt={`${group[0].record_name} ${image.image_kind}`} loading="lazy" />
+                      <figcaption>{image.image_kind}</figcaption>
+                    </figure>
+                  ))}
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : <div className="empty"><b>검토할 삭제 이미지가 없습니다.</b></div>
+      ) : visibleItems.length ? (
         <div className="submission-list">
           {visibleItems.map((item) => (
             <article key={item.id}>
@@ -1351,7 +1412,6 @@ function SubmissionQueue({
                 >
                   <option value="pending">확인 대기</option>
                   <option value="reviewed">확인 완료</option>
-                  <option value="resolved">반영 완료</option>
                 </select>
               </label>
             </article>

@@ -1,6 +1,6 @@
 import { db, ensureDatabase, isAdmin } from "../../../../lib/db";
 
-const statuses = new Set(["pending", "reviewed", "resolved"]);
+const statuses = new Set(["pending", "reviewed"]);
 
 export async function GET(request: Request) {
   if (!isAdmin(request))
