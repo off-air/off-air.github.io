@@ -1191,11 +1191,12 @@ function Admin({
                 />
               </label>
               <label>
-                <span>태그 · 띄어쓰기로 구분</span>
+                <span>태그 · #으로 구분</span>
                 <input
-                  value={p.tags.join(" ")}
-                  onChange={(e) => update("tags", e.target.value.split(/\s+/).filter(Boolean))}
-                  placeholder="게임 노래 잡담"
+                  key={`tags-${p.id}`}
+                  defaultValue={p.tags.join("#")}
+                  onBlur={(e) => update("tags", e.target.value.split("#").map((tag) => tag.trim()).filter(Boolean))}
+                  placeholder="게임#노래#잡담"
                 />
               </label>
             </div>

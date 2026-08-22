@@ -4,7 +4,8 @@ export async function GET(request:Request){if(!isAdmin(request))return Response.
 export async function PUT(request:Request){
   if(!isAdmin(request))return Response.json({error:'관리자 인증이 필요합니다.'},{status:401});await ensureDatabase();const p=await request.json() as AdminRecord;
   if(!Number.isInteger(p.id)||!p.name)return Response.json({error:'필수 정보를 확인해주세요.'},{status:400});
-  await db().prepare(`UPDATE records SET name=?,affiliation=?,avatar_key=?,activity_status=?,initial=?,color=?,debut=?,last_activity=?,category=?,note=?,bio=?,tags=?,published=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(p.name,p.category==='소속'?(p.affiliation||''):'',p.avatar_key||null,p.activity_status||'소식이 끊긴 버튜버',p.initial||p.name.slice(0,1),p.color||'#718096',p.debut||'',p.last||'',p.category||'개인',p.note||'',p.bio||'',JSON.stringify(p.tags||[]),p.published===false||p.published===0?0:1,p.id).run();
+  const tags=(p.tags||[]).map(tag=>tag.trim().replace(/^#+/,'')).filter(Boolean);
+  await db().prepare(`UPDATE records SET name=?,affiliation=?,avatar_key=?,activity_status=?,initial=?,color=?,debut=?,last_activity=?,category=?,note=?,bio=?,tags=?,published=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`).bind(p.name,p.category==='소속'?(p.affiliation||''):'',p.avatar_key||null,p.activity_status||'소식이 끊긴 버튜버',p.initial||p.name.slice(0,1),p.color||'#718096',p.debut||'',p.last||'',p.category||'개인',p.note||'',p.bio||'',JSON.stringify(tags),p.published===false||p.published===0?0:1,p.id).run();
   return Response.json({ok:true});
 }
 export async function POST(request:Request){
