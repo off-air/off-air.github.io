@@ -32,6 +32,14 @@ export const schemaStatements = [
     status TEXT NOT NULL DEFAULT 'pending',
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
+  `CREATE TABLE IF NOT EXISTS rate_limits (
+    action TEXT NOT NULL,
+    client_hash TEXT NOT NULL,
+    window_start INTEGER NOT NULL,
+    request_count INTEGER NOT NULL DEFAULT 1,
+    PRIMARY KEY (action, client_hash, window_start)
+  )`,
   `CREATE INDEX IF NOT EXISTS idx_records_published_last ON records(published, last_activity)`,
   `CREATE INDEX IF NOT EXISTS idx_submissions_status_created ON submissions(status, created_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_rate_limits_window ON rate_limits(window_start)`,
 ];

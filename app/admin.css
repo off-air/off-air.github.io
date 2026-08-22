@@ -1,3 +1,10 @@
+.admin-login { max-width: 540px; margin: 52px auto 0; padding: 32px; border: 1px solid var(--line); background: var(--card); }
+.admin-login label { display: block; }
+.admin-login .primary { margin-top: 16px; }
+.admin-login p { margin: 16px 0 0; color: var(--muted); font-size: 10px; }
+.hp-field { position: absolute !important; width: 1px !important; height: 1px !important; overflow: hidden !important; clip: rect(0 0 0 0) !important; white-space: nowrap !important; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid #596b80; outline-offset: 3px; }
+:root { --muted: #69665f; --blue: #5c6e83; }
 .admin-auth { margin: 38px 0 0; padding: 20px 24px; border: 1px solid var(--line); background: #ebe7de; display: flex; align-items: flex-end; gap: 24px; }
 .admin-auth label { width: min(440px, 100%); }
 .admin-auth p { margin: 0 0 14px; color: var(--muted); font-size: 10px; }
