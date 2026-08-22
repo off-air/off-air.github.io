@@ -177,6 +177,11 @@ const yearsText = (date: string) => {
 };
 const statusText = (person: Person) =>
   person.activity_status || "소식이 끊긴 버튜버";
+const activityStatuses = [
+  "공식적으로 활동 종료한 버튜버",
+  "소식이 끊긴 버튜버",
+  "무기한 휴식기에 들어간 버튜버",
+] as const;
 
 async function resizeForUpload(file: File, maxWidth: number, quality: number) {
   const bitmap = await createImageBitmap(file);
@@ -215,6 +220,9 @@ export default function Home({ initialPath = "/" }: { initialPath?: string }) {
   >("loading");
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState("recent");
+  const [statusFilters, setStatusFilters] = useState<string[]>([
+    ...activityStatuses,
+  ]);
   const [layout, setLayout] = useState<"grid" | "list">("grid");
   const [pageSize, setPageSize] = useState<5 | 10 | 15 | 20>(5);
   const [currentPage, setCurrentPage] = useState(1);
@@ -323,6 +331,7 @@ export default function Home({ initialPath = "/" }: { initialPath?: string }) {
   const list = useMemo(
     () =>
       people
+        .filter((p) => statusFilters.includes(statusText(p)))
         .filter((p) =>
           (p.name + p.tags.join(""))
             .toLowerCase()
@@ -335,7 +344,7 @@ export default function Home({ initialPath = "/" }: { initialPath?: string }) {
               ? a.name.localeCompare(b.name, "ko")
               : daysAgo(a.last) - daysAgo(b.last),
         ),
-    [people, query, sort],
+    [people, query, sort, statusFilters],
   );
   const pageCount = Math.max(1, Math.ceil(list.length / pageSize));
   const pagedList = list.slice(
@@ -387,6 +396,15 @@ export default function Home({ initialPath = "/" }: { initialPath?: string }) {
           setQuery={(value) => { setQuery(value); setCurrentPage(1); }}
           sort={sort}
           setSort={(value) => { setSort(value); setCurrentPage(1); }}
+          statusFilters={statusFilters}
+          toggleStatus={(value) => {
+            setStatusFilters((current) =>
+              current.includes(value)
+                ? current.filter((status) => status !== value)
+                : [...current, value],
+            );
+            setCurrentPage(1);
+          }}
           layout={layout}
           setLayout={setLayout}
           pageSize={pageSize}
@@ -455,6 +473,8 @@ function Archive({
   setQuery,
   sort,
   setSort,
+  statusFilters,
+  toggleStatus,
   layout,
   setLayout,
   pageSize,
@@ -471,6 +491,8 @@ function Archive({
   setQuery: (v: string) => void;
   sort: string;
   setSort: (v: string) => void;
+  statusFilters: string[];
+  toggleStatus: (v: string) => void;
   layout: "grid" | "list";
   setLayout: (v: "grid" | "list") => void;
   pageSize: 5 | 10 | 15 | 20;
@@ -487,7 +509,6 @@ function Archive({
           <p className="section-no">OFF–AIR ARCHIVE</p>
           <h1>기록</h1>
         </div>
-        <p>최근 확인된 활동을 기준으로 정리했습니다.</p>
       </div>
       {status === "loading" ? (
         <div className="empty" role="status">
@@ -558,6 +579,19 @@ function Archive({
               </button>
             </div>
           </div>
+          <fieldset className="status-filters">
+            <legend>활동 상태</legend>
+            {activityStatuses.map((activityStatus) => (
+              <label key={activityStatus}>
+                <input
+                  type="checkbox"
+                  checked={statusFilters.includes(activityStatus)}
+                  onChange={() => toggleStatus(activityStatus)}
+                />
+                <span>{activityStatus}</span>
+              </label>
+            ))}
+          </fieldset>
           <p className="result-count">기록 {total}건</p>
           {list.length ? (
             <div className={`card-grid ${layout === "list" ? "list-view" : ""}`}>
