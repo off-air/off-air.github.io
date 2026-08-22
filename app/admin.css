@@ -5,6 +5,11 @@
 .hp-field { position: absolute !important; width: 1px !important; height: 1px !important; overflow: hidden !important; clip: rect(0 0 0 0) !important; white-space: nowrap !important; }
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid #596b80; outline-offset: 3px; }
 :root { --muted: #69665f; --blue: #5c6e83; }
+.not-found { min-height: 100vh; padding: 80px 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; background: var(--paper); color: var(--ink); }
+.not-found > p { margin: 0 0 28px; color: var(--blue); font-size: 10px; letter-spacing: .18em; }
+.not-found h1 { margin: 0; font: 400 clamp(32px, 5vw, 52px) Georgia, 'Noto Serif KR', serif; letter-spacing: -.04em; }
+.not-found span { margin: 24px 0 40px; color: var(--muted); font-size: 13px; }
+.not-found a { padding-bottom: 7px; border-bottom: 1px solid var(--blue); color: var(--blue); font-size: 12px; }
 .submission-queue { margin-top: 80px; padding-top: 70px; border-top: 1px solid var(--line); }
 .submission-queue .section-heading h2 { font-size: 32px; }
 .submission-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }

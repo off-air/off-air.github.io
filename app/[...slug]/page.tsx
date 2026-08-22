@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import ArchiveApp from "../page";
 
 const records: Record<string, { name: string; description: string }> = {
@@ -83,7 +84,8 @@ export async function generateMetadata({
       },
     };
   }
-  const page = pages[slug[0]] ?? pages.about;
+  if (slug.length !== 1 || !pages[slug[0]]) notFound();
+  const page = pages[slug[0]];
   const title = `${page.title} — 여전히,`;
   return {
     title,
@@ -110,5 +112,9 @@ export default async function RoutedArchivePage({
   params: Promise<{ slug: string[] }>;
 }) {
   const { slug } = await params;
+  const isRecord =
+    slug.length === 2 && slug[0] === "records" && Boolean(records[slug[1]]);
+  const isPage = slug.length === 1 && Boolean(pages[slug[0]]);
+  if (!isRecord && !isPage) notFound();
   return <ArchiveApp initialPath={`/${slug.join("/")}`} />;
 }
