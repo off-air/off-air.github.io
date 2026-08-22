@@ -14,7 +14,7 @@ type Person = {
   last: string;
   category: string;
   activity_status?: string;
-  gallery?: { id: number; record_id: number; object_key: string }[];
+  gallery?: { id: number; record_id: number; object_key: string; thumbnail_key?: string }[];
   note: string;
   bio: string;
   tags: string[];
@@ -164,6 +164,20 @@ const yearsText = (date: string) => {
 };
 const statusText = (person: Person) =>
   person.activity_status || "소식이 끊긴 버튜버";
+
+async function resizeForUpload(file: File, maxWidth: number, quality: number) {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, maxWidth / bitmap.width);
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+  canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+  canvas.getContext("2d")?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+  const blob = await new Promise<Blob>((resolve, reject) =>
+    canvas.toBlob((result) => result ? resolve(result) : reject(new Error("이미지 변환 실패")), "image/webp", quality),
+  );
+  return new File([blob], `${file.name.replace(/\.[^.]+$/, "")}.webp`, { type: "image/webp" });
+}
 
 function viewFromPath(path: string): View {
   if (/^\/records\/\d+$/.test(path)) return "detail";
@@ -700,7 +714,7 @@ function Detail({
             {gallery.map((image, index) => (
               <button key={image.id} onClick={() => setGalleryIndex(index)} aria-label={`${p.name} 갤러리 ${index + 1}번 크게 보기`}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={`/api/profile-images/${encodeURIComponent(image.object_key)}`} alt={`${p.name} 활동 기록 ${index + 1}`} loading="lazy" />
+                <img src={`/api/profile-images/${encodeURIComponent(image.thumbnail_key || image.object_key)}`} alt={`${p.name} 활동 기록 ${index + 1}`} loading="lazy" decoding="async" />
               </button>
             ))}
           </div>
@@ -983,8 +997,9 @@ function Admin({
   };
   const uploadProfile = async (file?: File) => {
     if (!file) return;
+    const optimized = file.type === "image/gif" ? file : await resizeForUpload(file, 1200, 0.84);
     const form = new FormData();
-    form.set("file", file);
+    form.set("file", optimized);
     form.set("recordId", String(p.id));
     try {
       const response = await fetch("/api/admin/profile-images", {
@@ -1005,8 +1020,11 @@ function Admin({
     if (!files?.length) return;
     const form = new FormData();
     form.set("recordId", String(p.id));
-    Array.from(files).forEach((file) => form.append("files", file));
     try {
+      const originals = Array.from(files);
+      const thumbnails = await Promise.all(originals.map((file) => resizeForUpload(file, 480, 0.76)));
+      originals.forEach((file) => form.append("files", file));
+      thumbnails.forEach((file) => form.append("thumbnails", file));
       const response = await fetch("/api/admin/gallery", { method: "POST", headers: { authorization: `Bearer ${token}` }, body: form });
       const gallery = await response.json();
       if (!response.ok) throw new Error(gallery.error);
@@ -1247,7 +1265,7 @@ function Admin({
                   {(p.gallery || []).map((image, index) => (
                     <div key={image.id}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={`/api/profile-images/${encodeURIComponent(image.object_key)}`} alt={`갤러리 ${index + 1}`} />
+                      <img src={`/api/profile-images/${encodeURIComponent(image.thumbnail_key || image.object_key)}`} alt={`갤러리 ${index + 1}`} loading="lazy" decoding="async" />
                       <button onClick={() => deleteGalleryImage(image.id)} aria-label={`갤러리 ${index + 1} 삭제`}>삭제</button>
                     </div>
                   ))}

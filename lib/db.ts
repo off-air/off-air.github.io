@@ -8,7 +8,7 @@ let ready: Promise<void> | null = null;
 export function db(){ return runtime.DB; }
 export function profileImages(){ return runtime.PROFILE_IMAGES; }
 export function ensureDatabase(){
-  if(!ready) ready=(async()=>{await db().batch(schemaStatements.map(sql=>db().prepare(sql)));await ensureRecordColumns();await seed();})();
+  if(!ready) ready=(async()=>{await db().batch(schemaStatements.map(sql=>db().prepare(sql)));await ensureRecordColumns();await ensureGalleryColumns();await seed();})();
   return ready;
 }
 async function ensureRecordColumns(){
@@ -17,6 +17,10 @@ async function ensureRecordColumns(){
   if(!columns.has('affiliation'))await db().prepare("ALTER TABLE records ADD COLUMN affiliation TEXT NOT NULL DEFAULT ''").run();
   if(!columns.has('avatar_key'))await db().prepare('ALTER TABLE records ADD COLUMN avatar_key TEXT').run();
   if(!columns.has('activity_status'))await db().prepare("ALTER TABLE records ADD COLUMN activity_status TEXT NOT NULL DEFAULT '소식이 끊긴 버튜버'").run();
+}
+async function ensureGalleryColumns(){
+  const {results}=await db().prepare('PRAGMA table_info(record_gallery)').all<{name:string}>();
+  if(!results.some(column=>column.name==='thumbnail_key'))await db().prepare('ALTER TABLE record_gallery ADD COLUMN thumbnail_key TEXT').run();
 }
 async function seed(){
   const row=await db().prepare('SELECT COUNT(*) AS count FROM records').first<{count:number}>();

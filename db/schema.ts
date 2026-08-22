@@ -22,6 +22,7 @@ export const schemaStatements = [
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     record_id INTEGER NOT NULL,
     object_key TEXT NOT NULL UNIQUE,
+    thumbnail_key TEXT,
     sort_order INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (record_id) REFERENCES records(id) ON DELETE CASCADE
