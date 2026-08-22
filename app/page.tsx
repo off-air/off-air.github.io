@@ -868,12 +868,7 @@ function Privacy() {
 }
 function Submit({ onSubmit }: { onSubmit: (e: FormEvent) => void }) {
   return (
-    <div className="page">
-      <PageTitle no="SUBMIT — A RECORD" title="기억을 건네주세요.">
-        새로운 기록, 정확하지 않은 정보, 다시 시작된 활동.
-        <br />
-        알려주시면 확인한 뒤 조심스럽게 반영하겠습니다.
-      </PageTitle>
+    <div className="page submit-page">
       <section className="form-wrap">
         <div className="form-aside">
           <span>제보 전 확인해주세요</span>

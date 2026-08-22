@@ -110,3 +110,5 @@ footer{grid-template-columns:1fr auto}
 .status-filters button.active:after{content:'';position:absolute;left:13px;right:13px;bottom:6px;height:1px;background:var(--blue)}
 .status-filters button:focus-visible{outline:1px solid var(--blue);outline-offset:-2px}
 @media(max-width:720px){.status-filters{padding:12px 14px;align-items:stretch;flex-wrap:wrap;gap:3px}.status-filter-title{width:100%;margin:0 0 3px;padding:0 0 9px;border-right:0;border-bottom:1px solid var(--line);line-height:1.5}.status-filters button{padding:8px 9px;text-align:left}.status-filters button.active:after{left:9px;right:9px;bottom:4px}}
+.submit-page .form-wrap{padding-top:20px}
+@media(max-width:720px){.submit-page .form-wrap{padding-top:10px}}
