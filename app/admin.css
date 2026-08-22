@@ -4,7 +4,7 @@
 .admin-login p { margin: 16px 0 0; color: var(--muted); font-size: 10px; }
 .hp-field { position: absolute !important; width: 1px !important; height: 1px !important; overflow: hidden !important; clip: rect(0 0 0 0) !important; white-space: nowrap !important; }
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid #596b80; outline-offset: 3px; }
-:root { --muted: #69665f; --blue: #5c6e83; }
+:root { --muted: #aaa69d; --blue: #8b9daf; }
 .not-found { min-height: 100vh; padding: 80px 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; background: var(--paper); color: var(--ink); }
 .not-found > p { margin: 0 0 28px; color: var(--blue); font-size: 10px; letter-spacing: .18em; }
 .not-found h1 { margin: 0; font: 400 clamp(32px, 5vw, 52px) Georgia, 'Noto Serif KR', serif; letter-spacing: -.04em; }
@@ -28,7 +28,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .privacy-grid b { color: var(--blue); font: 400 12px Georgia, serif; }
 .privacy-grid h2 { margin: 42px 0 16px; font: 400 23px Georgia, 'Noto Serif KR', serif; }
 .privacy-grid p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.9; }
-.admin-auth { margin: 38px 0 0; padding: 20px 24px; border: 1px solid var(--line); background: #ebe7de; display: flex; align-items: flex-end; gap: 24px; }
+.admin-auth { margin: 38px 0 0; padding: 20px 24px; border: 1px solid var(--line); background: #252926; display: flex; align-items: flex-end; gap: 24px; }
 .admin-auth label { width: min(440px, 100%); }
 .admin-auth p { margin: 0 0 14px; color: var(--muted); font-size: 10px; }
 @media (max-width: 720px) { .admin-auth { align-items: stretch; flex-direction: column; gap: 10px; } .admin-auth p { margin: 0; } .submission-list, .privacy-grid { grid-template-columns: 1fr; } .submission-list p { min-height: 0; } }

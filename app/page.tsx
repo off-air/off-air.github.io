@@ -1,7 +1,7 @@
 "use client";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
-type View = "home" | "detail" | "about" | "submit" | "admin" | "privacy";
+type View = "home" | "detail" | "submit" | "admin" | "privacy";
 type Person = {
   id: number;
   name: string;
@@ -162,7 +162,7 @@ const yearsText = (date: string) => {
 function viewFromPath(path: string): View {
   if (/^\/records\/\d+$/.test(path)) return "detail";
   const name = path.slice(1);
-  return ["about", "submit", "admin", "privacy"].includes(name)
+  return ["submit", "admin", "privacy"].includes(name)
     ? (name as View)
     : "home";
 }
@@ -217,7 +217,7 @@ export default function Home({ initialPath = "/" }: { initialPath?: string }) {
           setSelected(found);
           setView("detail");
         } else if (recordStatus === "ready") setView("home");
-      } else if (["/about", "/submit", "/admin", "/privacy"].includes(path))
+      } else if (["/submit", "/admin", "/privacy"].includes(path))
         setView(path.slice(1) as View);
       else setView("home");
     };
@@ -331,18 +331,15 @@ export default function Home({ initialPath = "/" }: { initialPath?: string }) {
         </div>
       )}
       {view === "home" && (
-        <>
-          <Hero />
-          <Archive
-            list={list}
-            status={recordStatus}
-            query={query}
-            setQuery={setQuery}
-            sort={sort}
-            setSort={setSort}
-            open={openPerson}
-          />
-        </>
+        <Archive
+          list={list}
+          status={recordStatus}
+          query={query}
+          setQuery={setQuery}
+          sort={sort}
+          setSort={setSort}
+          open={openPerson}
+        />
       )}
       {view === "detail" &&
         (recordStatus === "ready" ? (
@@ -360,7 +357,6 @@ export default function Home({ initialPath = "/" }: { initialPath?: string }) {
             </div>
           </div>
         ))}
-      {view === "about" && <About />}
       {view === "submit" && <Submit onSubmit={submitForm} />}{" "}
       {view === "admin" && (
         <Admin people={people} setPeople={setPeople} showToast={setToast} />
@@ -375,7 +371,7 @@ function Header({ view, go }: { view: View; go: (v: View) => void }) {
   return (
     <header className="site-header">
       <button className="wordmark" onClick={() => go("home")}>
-        여전히<span>,</span>
+        OFF<span>–</span>AIR
       </button>
       <nav aria-label="주요 메뉴">
         <button
@@ -385,12 +381,6 @@ function Header({ view, go }: { view: View; go: (v: View) => void }) {
           기록
         </button>
         <button
-          className={view === "about" ? "active" : ""}
-          onClick={() => go("about")}
-        >
-          소개
-        </button>
-        <button
           className={view === "submit" ? "active" : ""}
           onClick={() => go("submit")}
         >
@@ -398,27 +388,6 @@ function Header({ view, go }: { view: View; go: (v: View) => void }) {
         </button>
       </nav>
     </header>
-  );
-}
-function Hero() {
-  return (
-    <section className="hero" id="top">
-      <p className="eyebrow">A quiet archive of remembered voices</p>
-      <h1>
-        마지막 방송이 지나간 뒤에도
-        <br />
-        <em>남아 있는 기록이 있습니다.</em>
-      </h1>
-      <p className="hero-copy">
-        오래도록 소식이 닿지 않는 버추얼 크리에이터들의
-        <br className="desktop" /> 활동과, 그들을 기억하는 마음을 조용히
-        기록합니다.
-      </p>
-      <a className="scroll-link" href="#records">
-        <span>기록 둘러보기</span>
-        <i>↓</i>
-      </a>
-    </section>
   );
 }
 function Archive({
@@ -442,8 +411,8 @@ function Archive({
     <section className="records" id="records">
       <div className="section-heading">
         <div>
-          <p className="section-no">01 — ARCHIVE</p>
-          <h2>남아 있는 기록</h2>
+          <p className="section-no">OFF–AIR ARCHIVE</p>
+          <h1>기록</h1>
         </div>
         <p>최근 확인된 활동을 기준으로 정리했습니다.</p>
       </div>
@@ -653,68 +622,6 @@ function PageTitle({
     </div>
   );
 }
-function About() {
-  return (
-    <div className="page">
-      <PageTitle no="ABOUT — YEOJEONHI" title="기억하는 일을 기록합니다.">
-        ‘여전히,’는 멈춘 활동을 판단하지 않고,
-        <br />
-        그곳에 남아 있는 시간과 마음을 정리하는 작은 기록관입니다.
-      </PageTitle>
-      <section className="manifesto">
-        <div className="big-quote">“</div>
-        <p>
-          사라졌다고 말하지 않습니다.
-          <br />
-          마지막이라고 단정하지 않습니다.
-          <br />
-          <em>그저, 우리가 기억하고 있는 시간을 남깁니다.</em>
-        </p>
-      </section>
-      <section className="principles">
-        <div>
-          <p className="section-no">01 — PRINCIPLE</p>
-          <h2>우리가 지키는 것</h2>
-        </div>
-        <div className="principle-list">
-          <article>
-            <b>01</b>
-            <h3>사실에 가까운 기록</h3>
-            <p>
-              공개적으로 확인할 수 있는 활동만 기록하며, 추측이나 사생활에 관한
-              정보는 싣지 않습니다.
-            </p>
-          </article>
-          <article>
-            <b>02</b>
-            <h3>조용한 거리</h3>
-            <p>
-              활동 중단을 사건화하거나 흥밋거리로 만들지 않습니다. 당사자의
-              결정을 가장 먼저 존중합니다.
-            </p>
-          </article>
-          <article>
-            <b>03</b>
-            <h3>수정될 권리</h3>
-            <p>
-              당사자나 관계자의 요청이 있다면 기록을 수정하거나 비공개로
-              전환합니다.
-            </p>
-          </article>
-        </div>
-      </section>
-      <section className="about-note">
-        <h2>이름에 대하여</h2>
-        <p>
-          “여전히”는 시간이 지났어도 남아 있는 상태를 뜻합니다.
-          <br />
-          방송은 멈췄을지라도, 누군가의 기억 안에서는 여전히 이어지고 있습니다.
-        </p>
-      </section>
-    </div>
-  );
-}
-
 function Privacy() {
   return (
     <div className="page">
@@ -1145,14 +1052,13 @@ function SubmissionQueue({
 function Footer({ go }: { go: (v: View) => void }) {
   return (
     <footer>
-      <button onClick={() => go("home")}>여전히,</button>
-      <p>기억은 오래 머무르는 일이기도 합니다.</p>
+      <button onClick={() => go("home")}>OFF–AIR</button>
+      <p>방송이 멈춘 뒤에도, 기록은 남습니다.</p>
       <div>
-        <button onClick={() => go("about")}>운영 원칙</button>
         <button onClick={() => go("submit")}>기록 제보</button>
         <button onClick={() => go("privacy")}>데이터 안내</button>
         <button onClick={() => go("admin")}>관리</button>
-        <small>© 2026 YEOJEONHI ARCHIVE</small>
+        <small>© 2026 OFF–AIR ARCHIVE</small>
       </div>
     </footer>
   );

@@ -3,3 +3,36 @@
 @media(max-width:1290px){.admin-page{margin:0 24px}}@media(max-width:1176px){.records,.page{margin-left:28px;margin-right:28px}}@media(max-width:800px){.admin-grid{grid-template-columns:1fr}.admin-grid>aside{max-height:280px;overflow:auto}.form-wrap{grid-template-columns:1fr;gap:45px}.detail-body,.principles{grid-template-columns:1fr;gap:45px}.detail-body{padding:70px 0}.principles{padding:70px 0}.admin-page{margin:0 20px}}
 @media(max-width:720px){.site-header{height:76px;padding:0 20px}.wordmark{font-size:21px}nav{gap:19px;font-size:13px}.hero{height:auto;min-height:680px;padding:140px 20px 80px}.eyebrow{margin-bottom:20px}.hero h1{font-size:37px;line-height:1.42}.hero-copy{font-size:14px}.records{margin:0 20px;padding:86px 0 110px}.section-heading{align-items:flex-start;flex-direction:column;gap:18px}.section-heading p:last-child{font-size:12px}.section-heading h2{font-size:32px}.archive-tools{height:auto;display:block}.search{height:58px}.sort{height:48px;border-left:0;border-top:1px solid var(--line);justify-content:flex-end}.card-grid{grid-template-columns:1fr}.portrait{height:230px}.card-body{padding:24px}.desktop{display:none}.page{margin:0 20px;padding:120px 0 100px}.page-title{padding-bottom:55px}.page-title h1{font-size:36px;line-height:1.45}.page-title>p:last-child{font-size:13px}.detail-hero{grid-template-columns:1fr}.portrait.large{min-height:310px}.detail-intro{padding:40px 28px}.detail-intro h1{font-size:38px}.timeline{gap:10px;margin:45px 0}.time-block strong{font-size:13px}.detail-body h2{font-size:28px}.elapsed{padding:58px 10px}.elapsed strong{font-size:38px}.manifesto{min-height:330px}.manifesto p{font-size:20px}.principles h2{font-size:28px}.about-note{margin-left:-20px;margin-right:-20px}.field-row{grid-template-columns:1fr}.form-wrap{padding:60px 0}.admin-page .page-title h1{font-size:36px}.admin-grid{margin-top:35px}.editor-head{align-items:flex-start;gap:20px}.editor-head>div:last-child{flex-direction:column-reverse}.editor-head .primary,.editor-head .secondary{min-height:34px;padding:0 12px}.editor-form{padding:22px 18px}footer{grid-template-columns:1fr;gap:20px;min-height:250px;padding:45px 20px}footer>div{justify-content:flex-start;flex-wrap:wrap}footer small{width:100%;margin:5px 0 0}.toast{bottom:20px;width:calc(100% - 40px);text-align:center}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.record-card{transition:none}}
+
+/* OFF-AIR dark archive theme */
+:root{
+  color-scheme:dark;
+  --paper:#171918;
+  --card:#202321;
+  --ink:#e8e3d9;
+  --muted:#aaa69d;
+  --line:#3a3e3b;
+  --blue:#8b9daf;
+  --sage:#91a094;
+}
+body{background-image:linear-gradient(rgba(255,255,255,.012) 1px,transparent 1px);background-size:100% 40px}
+.site-header{border-bottom:1px solid var(--line);background:rgba(23,25,24,.92);backdrop-filter:blur(12px)}
+.wordmark{font-family:var(--font-geist-sans),'Malgun Gothic',sans-serif;font-size:20px;font-weight:650;letter-spacing:.16em}
+.wordmark span{margin:0 .03em;color:var(--blue)}
+.records{padding-top:152px}
+.section-heading h1{margin:0;font-family:Georgia,'Noto Serif KR',serif;font-size:46px;font-weight:400;letter-spacing:-.04em}
+.record-card:hover,.record-card:focus{border-color:#66716b;box-shadow:0 18px 45px rgba(0,0,0,.18)}
+.portrait{background:color-mix(in srgb,var(--portrait) 26%,#202321);color:color-mix(in srgb,var(--portrait) 72%,#e8e3d9)}
+.portrait small{color:rgba(232,227,217,.42)}
+.search input::placeholder{color:#777b76}
+.sort select option,input,select,textarea{background-color:var(--card);color:var(--ink)}
+.fiction-note,.detail-intro small{color:#777b76}
+.toast{background:#d8d4cb;color:#1c1f1d;box-shadow:0 12px 40px rgba(0,0,0,.4)}
+.elapsed,.about-note,.status-line,.admin-auth{background:#252926}
+.time-line i{background:var(--paper)}
+.big-quote{color:#414642}
+.admin-grid aside>button{border-bottom-color:var(--line)}
+.admin-grid aside>button.active{background:#292d2a}
+.switch i{background:#5b605c}
+.primary,.remember.saved{color:#171918}
+@media(max-width:720px){.records{padding-top:116px}.section-heading h1{font-size:38px}}
