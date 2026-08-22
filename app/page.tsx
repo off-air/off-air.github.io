@@ -579,19 +579,20 @@ function Archive({
               </button>
             </div>
           </div>
-          <fieldset className="status-filters">
-            <legend>활동 상태</legend>
+          <div className="status-filters" role="group" aria-label="활동 상태">
+            <span className="status-filter-title">활동 상태</span>
             {activityStatuses.map((activityStatus) => (
-              <label key={activityStatus}>
-                <input
-                  type="checkbox"
-                  checked={statusFilters.includes(activityStatus)}
-                  onChange={() => toggleStatus(activityStatus)}
-                />
-                <span>{activityStatus}</span>
-              </label>
+              <button
+                key={activityStatus}
+                type="button"
+                className={statusFilters.includes(activityStatus) ? "active" : ""}
+                aria-pressed={statusFilters.includes(activityStatus)}
+                onClick={() => toggleStatus(activityStatus)}
+              >
+                {activityStatus}
+              </button>
             ))}
-          </fieldset>
+          </div>
           <p className="result-count">기록 {total}건</p>
           {list.length ? (
             <div className={`card-grid ${layout === "list" ? "list-view" : ""}`}>
