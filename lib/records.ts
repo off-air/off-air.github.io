@@ -14,6 +14,7 @@ export type PublicRecord = {
   category: string;
   note: string;
   bio: string;
+  graduation_message?: string;
   tags: string[];
   memories: number;
   published?: boolean | number;

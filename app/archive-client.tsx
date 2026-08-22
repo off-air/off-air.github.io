@@ -18,6 +18,7 @@ export type Person = {
   gallery?: GalleryImage[];
   note: string;
   bio: string;
+  graduation_message?: string;
   tags: string[];
   memories: number;
   published?: boolean | number;
@@ -800,6 +801,13 @@ function Detail({
           </div>
         </div>
       </section>
+      {p.graduation_message?.trim() && (
+        <section className="graduation-message" aria-labelledby="graduation-message-title">
+          <p className="section-no">LAST MESSAGE</p>
+          <h2 id="graduation-message-title">마지막으로 남긴 말</h2>
+          <blockquote>{p.graduation_message}</blockquote>
+        </section>
+      )}
       {gallery.length > 0 && (
         <section className="record-gallery">
           <div className="gallery-heading">
@@ -1364,6 +1372,17 @@ function Admin({
                 value={p.bio}
                 onChange={(e) => update("bio", e.target.value)}
               />
+            </label>
+            <label>
+              <span>마지막 졸업사 · 선택 입력</span>
+              <textarea
+                rows={8}
+                maxLength={20000}
+                value={p.graduation_message || ""}
+                onChange={(e) => update("graduation_message", e.target.value)}
+                placeholder="마지막 방송이나 공식 졸업 안내에서 남긴 말을 입력해주세요."
+              />
+              <small className="field-help">입력한 경우에만 공개 상세 기록에 원문 형태로 표시됩니다.</small>
             </label>
             <div className="field-row">
               <label>

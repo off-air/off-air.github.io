@@ -1,6 +1,6 @@
 import { adminGuard, db, ensureDatabase, readJson, requestError } from "../../../../lib/db";
 
-type AdminRecord = { id?: unknown; name?: unknown; affiliation?: unknown; avatar_key?: unknown; activity_status?: unknown; initial?: unknown; color?: unknown; debut?: unknown; last?: unknown; category?: unknown; note?: unknown; bio?: unknown; tags?: unknown; published?: unknown };
+type AdminRecord = { id?: unknown; name?: unknown; affiliation?: unknown; avatar_key?: unknown; activity_status?: unknown; initial?: unknown; color?: unknown; debut?: unknown; last?: unknown; category?: unknown; note?: unknown; bio?: unknown; graduation_message?: unknown; tags?: unknown; published?: unknown };
 const categories = new Set(["개인", "소속"]);
 const activityStatuses = new Set(["공식적으로 활동 종료한 버튜버", "소식이 끊긴 버튜버", "무기한 휴식기에 들어간 버튜버"]);
 const text = (value: unknown, max: number) => typeof value === "string" ? value.trim().slice(0, max) : "";
@@ -25,16 +25,16 @@ export async function PUT(request: Request) {
   const denied = await adminGuard(request);
   if (denied) return denied;
   try {
-    const p = await readJson<AdminRecord>(request, 32 * 1024);
+    const p = await readJson<AdminRecord>(request, 96 * 1024);
     const name = text(p.name, 100);
     const category = categories.has(p.category as string) ? p.category as string : "개인";
     const activityStatus = activityStatuses.has(p.activity_status as string) ? p.activity_status as string : "소식이 끊긴 버튜버";
     if (!Number.isInteger(p.id) || !name) return Response.json({ error: "필수 정보를 확인해주세요." }, { status: 400 });
     const tags = Array.isArray(p.tags) ? p.tags.filter((tag): tag is string => typeof tag === "string").slice(0, 30).map((tag) => tag.trim().replace(/^#+/, "").slice(0, 40)).filter(Boolean) : [];
-    const result = await db().prepare("UPDATE records SET name=?,affiliation=?,avatar_key=?,activity_status=?,initial=?,color=?,debut=?,last_activity=?,category=?,note=?,bio=?,tags=?,published=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(
+    const result = await db().prepare("UPDATE records SET name=?,affiliation=?,avatar_key=?,activity_status=?,initial=?,color=?,debut=?,last_activity=?,category=?,note=?,bio=?,graduation_message=?,tags=?,published=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(
       name, category === "소속" ? text(p.affiliation, 120) : "", text(p.avatar_key, 512) || null, activityStatus,
       text(p.initial, 4) || name.slice(0, 1), /^#[0-9a-f]{6}$/i.test(String(p.color)) ? p.color : "#718096",
-      text(p.debut, 20), text(p.last, 20), category, text(p.note, 1000), text(p.bio, 10000), JSON.stringify(tags), p.published === false || p.published === 0 ? 0 : 1, p.id,
+      text(p.debut, 20), text(p.last, 20), category, text(p.note, 1000), text(p.bio, 10000), text(p.graduation_message, 20000), JSON.stringify(tags), p.published === false || p.published === 0 ? 0 : 1, p.id,
     ).run();
     if (!result.meta.changes) return Response.json({ error: "기록을 찾을 수 없습니다." }, { status: 404 });
     return Response.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
@@ -47,7 +47,7 @@ export async function POST(request: Request) {
   try {
     await readJson<Record<string, never>>(request, 128);
     const handle = `record-${crypto.randomUUID()}`;
-    const result = await db().prepare("INSERT INTO records (name,handle,affiliation,activity_status,initial,color,debut,last_activity,category,note,bio,tags,base_memories,published) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)").bind("새 기록", handle, "", "소식이 끊긴 버튜버", "新", "#718096", "", "", "개인", "", "", "[]", 0, 0).run();
+    const result = await db().prepare("INSERT INTO records (name,handle,affiliation,activity_status,initial,color,debut,last_activity,category,note,bio,graduation_message,tags,base_memories,published) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)").bind("새 기록", handle, "", "소식이 끊긴 버튜버", "新", "#718096", "", "", "개인", "", "", "", "[]", 0, 0).run();
     const id = Number(result.meta.last_row_id);
     const row = await db().prepare("SELECT *, last_activity AS last FROM records WHERE id=?").bind(id).first<Record<string, unknown>>();
     return Response.json({ ...row, tags: [] }, { status: 201, headers: { "Cache-Control": "no-store" } });
