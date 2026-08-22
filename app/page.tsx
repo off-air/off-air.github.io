@@ -159,10 +159,24 @@ const yearsText = (date: string) => {
   return y ? `${y}년 ${m ? `${m}개월` : ""}`.trim() : `${m}개월`;
 };
 
-export default function Home() {
-  const [view, setView] = useState<View>("home");
+function viewFromPath(path: string): View {
+  if (/^\/records\/\d+$/.test(path)) return "detail";
+  const name = path.slice(1);
+  return ["about", "submit", "admin", "privacy"].includes(name)
+    ? (name as View)
+    : "home";
+}
+
+export default function Home({ initialPath = "/" }: { initialPath?: string }) {
+  const [view, setView] = useState<View>(() => viewFromPath(initialPath));
   const [people, setPeople] = useState<Person[]>([]);
-  const [selected, setSelected] = useState<Person>(originalPeople[0]);
+  const initialRecordId = Number(
+    initialPath.match(/^\/records\/(\d+)$/)?.[1] || 1,
+  );
+  const [selected, setSelected] = useState<Person>(
+    () =>
+      originalPeople.find((p) => p.id === initialRecordId) || originalPeople[0],
+  );
   const [recordStatus, setRecordStatus] = useState<
     "loading" | "ready" | "error"
   >("loading");
@@ -330,14 +344,22 @@ export default function Home() {
           />
         </>
       )}
-      {view === "detail" && (
-        <Detail
-          person={selected}
-          back={() => go("home")}
-          remembered={remembered.includes(selected.id)}
-          remember={() => remember(selected.id)}
-        />
-      )}
+      {view === "detail" &&
+        (recordStatus === "ready" ? (
+          <Detail
+            person={selected}
+            back={() => go("home")}
+            remembered={remembered.includes(selected.id)}
+            remember={() => remember(selected.id)}
+          />
+        ) : (
+          <div className="page">
+            <div className="empty" role="status">
+              <b>기록을 불러오고 있습니다.</b>
+              <p>잠시만 기다려주세요.</p>
+            </div>
+          </div>
+        ))}
       {view === "about" && <About />}
       {view === "submit" && <Submit onSubmit={submitForm} />}{" "}
       {view === "admin" && (

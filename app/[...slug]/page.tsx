@@ -104,6 +104,11 @@ export async function generateMetadata({
   };
 }
 
-export default function RoutedArchivePage() {
-  return <ArchiveApp />;
+export default async function RoutedArchivePage({
+  params,
+}: {
+  params: Promise<{ slug: string[] }>;
+}) {
+  const { slug } = await params;
+  return <ArchiveApp initialPath={`/${slug.join("/")}`} />;
 }
