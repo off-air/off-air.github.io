@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://yeojeonhi-vtuber-archive.lununs.chatgpt.site"),
+  metadataBase: new URL("https://yeojeonhi-vtuber-archive.lununs.workers.dev"),
   title: "OFF-AIR — 버추얼 크리에이터 기억 아카이브",
   description:
     "오래도록 소식이 닿지 않는 버추얼 크리에이터들의 활동을 기억하고 기록합니다.",
