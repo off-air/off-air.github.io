@@ -50,4 +50,20 @@ body{background-image:linear-gradient(rgba(255,255,255,.012) 1px,transparent 1px
 .profile-upload>div{display:grid;grid-template-columns:180px 1fr;gap:20px;align-items:center}
 .profile-upload .portrait{height:150px}
 .add-record{margin-left:auto;padding:6px 8px!important;color:var(--blue);font-size:10px!important;width:auto!important;border:1px solid var(--line)!important}
+.card-grid{grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}
+.card-grid:not(.list-view) .portrait{height:160px}
+.card-grid:not(.list-view) .portrait:before{width:92px;height:92px}
+.card-grid:not(.list-view) .portrait:after{width:126px;height:126px}
+.card-grid:not(.list-view) .portrait span{font-size:43px}
+.card-grid:not(.list-view) .card-body{padding:18px}
+.card-grid:not(.list-view) .identity{display:block}
+.card-grid:not(.list-view) .identity h3{font-size:18px}
+.card-grid:not(.list-view) .identity>button{margin-top:10px}
+.card-grid:not(.list-view) .note{min-height:64px;margin:18px 0;font-size:12px}
+.card-grid:not(.list-view) .last-seen{align-items:flex-start;flex-direction:column;gap:7px}
+.danger{min-height:44px;padding:0 15px;border:1px solid #9b625c;color:#c68178;font-size:12px}
+.danger:hover,.danger:focus-visible{background:#9b625c;color:#fff}
+@media(max-width:1100px){.card-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:900px){.card-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:720px){.page-size{border-top:1px solid var(--line)}.view-switch{height:48px;border-left:0;border-top:1px solid var(--line);justify-content:flex-end}.card-grid.list-view .record-card{grid-template-columns:110px 1fr}.card-grid.list-view .portrait{min-height:190px}.card-grid.list-view .card-body{padding:20px}.card-grid.list-view .note{display:none}.profile-upload>div{grid-template-columns:1fr}.profile-upload .portrait{height:220px}}
+@media(max-width:720px){.card-grid{grid-template-columns:1fr}.danger{min-height:34px;padding:0 12px}}

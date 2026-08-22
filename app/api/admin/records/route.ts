@@ -1,4 +1,4 @@
-import { db, ensureDatabase, isAdmin } from '../../../../lib/db';
+import { db, ensureDatabase, isAdmin, profileImages } from '../../../../lib/db';
 type AdminRecord={id:number;name:string;handle:string;affiliation?:string;avatar_key?:string;initial:string;color:string;debut:string;last:string;category:string;note:string;bio:string;tags:string[];published?:boolean|number};
 export async function GET(request:Request){if(!isAdmin(request))return Response.json({error:'관리자 인증이 필요합니다.'},{status:401});await ensureDatabase();const {results}=await db().prepare('SELECT * FROM records ORDER BY id').all();const rows=results as unknown as Array<{tags:string;last_activity:string;[key:string]:unknown}>;return Response.json(rows.map(r=>({...r,last:r.last_activity,tags:JSON.parse(r.tags||'[]')})))}
 export async function PUT(request:Request){
@@ -15,4 +15,18 @@ export async function POST(request:Request){
   const id=Number(result.meta.last_row_id);
   const row=await db().prepare('SELECT *, last_activity AS last FROM records WHERE id=?').bind(id).first<Record<string,unknown>>();
   return Response.json({...row,tags:[]},{status:201});
+}
+export async function DELETE(request:Request){
+  if(!isAdmin(request))return Response.json({error:'관리자 인증이 필요합니다.'},{status:401});
+  await ensureDatabase();
+  const {id}=await request.json() as {id?:number};
+  if(!Number.isInteger(id))return Response.json({error:'삭제할 기록을 확인해주세요.'},{status:400});
+  const record=await db().prepare('SELECT avatar_key FROM records WHERE id=?').bind(id).first<{avatar_key:string|null}>();
+  if(!record)return Response.json({error:'기록을 찾을 수 없습니다.'},{status:404});
+  await db().batch([
+    db().prepare('DELETE FROM remembrance WHERE record_id=?').bind(id),
+    db().prepare('DELETE FROM records WHERE id=?').bind(id),
+  ]);
+  if(record.avatar_key)await profileImages().delete(record.avatar_key);
+  return Response.json({ok:true});
 }

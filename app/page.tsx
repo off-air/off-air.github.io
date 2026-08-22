@@ -185,7 +185,7 @@ export default function Home({ initialPath = "/" }: { initialPath?: string }) {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState("recent");
   const [layout, setLayout] = useState<"grid" | "list">("grid");
-  const [pageSize, setPageSize] = useState<5 | 10>(5);
+  const [pageSize, setPageSize] = useState<5 | 10 | 15 | 20>(5);
   const [currentPage, setCurrentPage] = useState(1);
   const [remembered, setRemembered] = useState<number[]>(() => {
     if (typeof window === "undefined") return [];
@@ -434,8 +434,8 @@ function Archive({
   setSort: (v: string) => void;
   layout: "grid" | "list";
   setLayout: (v: "grid" | "list") => void;
-  pageSize: 5 | 10;
-  setPageSize: (v: 5 | 10) => void;
+  pageSize: 5 | 10 | 15 | 20;
+  setPageSize: (v: 5 | 10 | 15 | 20) => void;
   currentPage: number;
   pageCount: number;
   setCurrentPage: (v: number) => void;
@@ -492,10 +492,14 @@ function Archive({
               표시
               <select
                 value={pageSize}
-                onChange={(e) => setPageSize(Number(e.target.value) as 5 | 10)}
+                onChange={(e) =>
+                  setPageSize(Number(e.target.value) as 5 | 10 | 15 | 20)
+                }
               >
                 <option value={5}>5개씩</option>
                 <option value={10}>10개씩</option>
+                <option value={15}>15개씩</option>
+                <option value={20}>20개씩</option>
               </select>
             </label>
             <div className="view-switch" aria-label="보기 방식">
@@ -911,6 +915,28 @@ function Admin({
     }
     setTimeout(() => showToast(""), 2400);
   };
+  const deleteRecord = async () => {
+    if (!window.confirm(`“${p.name}” 기록을 삭제할까요?\n삭제한 기록은 복구할 수 없습니다.`)) return;
+    try {
+      const response = await fetch("/api/admin/records", {
+        method: "DELETE",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ id: p.id }),
+      });
+      if (!response.ok) throw new Error();
+      const remaining = people.filter((record) => record.id !== p.id);
+      setPeople(remaining);
+      if (remaining.length) setActive(remaining[0].id);
+      showToast("기록을 삭제했습니다.");
+    } catch {
+      showToast("기록을 삭제하지 못했습니다. 다시 인증해주세요.");
+      setAuthenticated(false);
+    }
+    setTimeout(() => showToast(""), 2400);
+  };
   const uploadProfile = async (file?: File) => {
     if (!file) return;
     const form = new FormData();
@@ -1012,6 +1038,9 @@ function Admin({
               <h2>{p.name} 편집</h2>
             </div>
             <div>
+              <button className="danger" onClick={deleteRecord}>
+                기록 삭제
+              </button>
               <button className="secondary" onClick={() => authenticate()}>
                 서버 값 복원
               </button>
