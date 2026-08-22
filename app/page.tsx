@@ -2,6 +2,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 type View = "home" | "detail" | "submit" | "admin" | "privacy";
+type GalleryImage = { id: number; record_id: number; object_key: string; thumbnail_key?: string };
 type Person = {
   id: number;
   name: string;
@@ -14,7 +15,7 @@ type Person = {
   last: string;
   category: string;
   activity_status?: string;
-  gallery?: { id: number; record_id: number; object_key: string; thumbnail_key?: string }[];
+  gallery?: GalleryImage[];
   note: string;
   bio: string;
   tags: string[];
@@ -39,6 +40,10 @@ type DeletedImage = {
   object_key: string;
   deleted_at: string;
 };
+
+async function readResponseJson<T>(response: Response): Promise<T> {
+  return await response.json() as T;
+}
 
 const originalPeople: Person[] = [
   {
@@ -226,7 +231,7 @@ export default function Home({ initialPath = "/" }: { initialPath?: string }) {
     fetch("/api/records")
       .then((r) => {
         if (!r.ok) throw new Error();
-        return r.json();
+        return readResponseJson<Person[]>(r);
       })
       .then((data) => {
         setPeople(data);
@@ -289,7 +294,7 @@ export default function Home({ initialPath = "/" }: { initialPath?: string }) {
         body: JSON.stringify({ recordId: id, visitorId, remember: isAdding }),
       });
       if (!response.ok) throw new Error();
-      const data = await response.json();
+      const data = await readResponseJson<{ memories: number }>(response);
       setPeople((current) =>
         current.map((p) =>
           p.id === id ? { ...p, memories: data.memories } : p,
@@ -347,7 +352,7 @@ export default function Home({ initialPath = "/" }: { initialPath?: string }) {
           website: fields.get("website"),
         }),
       });
-      const data = await response.json();
+      const data = await readResponseJson<{ error?: string }>(response);
       if (!response.ok) throw new Error(data.error);
       form.reset();
       setToast("제보가 안전하게 접수되었습니다.");
@@ -652,7 +657,7 @@ function Detail({
   const [gallery, setGallery] = useState(p.gallery || []);
   useEffect(() => {
     fetch(`/api/gallery?recordId=${p.id}`)
-      .then((response) => response.ok ? response.json() : [])
+      .then((response) => response.ok ? readResponseJson<GalleryImage[]>(response) : [])
       .then(setGallery)
       .catch(() => undefined);
   }, [p.id]);
@@ -934,9 +939,9 @@ function Admin({
         fetch("/api/admin/deleted-images", { headers }),
       ]);
       if (!recordsResponse.ok || !submissionsResponse.ok || !deletedImagesResponse.ok) throw new Error();
-      const records = await recordsResponse.json();
-      const received = await submissionsResponse.json();
-      const retainedImages = await deletedImagesResponse.json();
+      const records = await readResponseJson<Person[]>(recordsResponse);
+      const received = await readResponseJson<Submission[]>(submissionsResponse);
+      const retainedImages = await readResponseJson<DeletedImage[]>(deletedImagesResponse);
       setPeople(records);
       setSubmissions(received);
       setDeletedImages(retainedImages);
@@ -975,7 +980,7 @@ function Admin({
         },
         body: "{}",
       });
-      const record = await response.json();
+      const record = await readResponseJson<Person & { error?: string }>(response);
       if (!response.ok) throw new Error(record.error);
       setPeople([...people, record]);
       setActive(record.id);
@@ -998,7 +1003,7 @@ function Admin({
       });
       if (!response.ok) throw new Error();
       const retainedResponse = await fetch("/api/admin/deleted-images", { headers: { authorization: `Bearer ${token}` } });
-      if (retainedResponse.ok) setDeletedImages(await retainedResponse.json());
+      if (retainedResponse.ok) setDeletedImages(await readResponseJson<DeletedImage[]>(retainedResponse));
       const remaining = people.filter((record) => record.id !== p.id);
       setPeople(remaining);
       if (remaining.length) setActive(remaining[0].id);
@@ -1021,7 +1026,7 @@ function Admin({
         headers: { authorization: `Bearer ${token}` },
         body: form,
       });
-      const data = await response.json();
+      const data = await readResponseJson<{ avatar_key: string; error?: string }>(response);
       if (!response.ok) throw new Error(data.error);
       update("avatar_key", data.avatar_key);
       showToast("프로필 사진을 업로드했습니다.");
@@ -1032,16 +1037,21 @@ function Admin({
   };
   const uploadGallery = async (files?: FileList | null) => {
     if (!files?.length) return;
-    const form = new FormData();
-    form.set("recordId", String(p.id));
     try {
       const originals = Array.from(files);
-      const thumbnails = await Promise.all(originals.map((file) => resizeForUpload(file, 480, 0.76)));
-      originals.forEach((file) => form.append("files", file));
-      thumbnails.forEach((file) => form.append("thumbnails", file));
-      const response = await fetch("/api/admin/gallery", { method: "POST", headers: { authorization: `Bearer ${token}` }, body: form });
-      const gallery = await response.json();
-      if (!response.ok) throw new Error(gallery.error);
+      let gallery: GalleryImage[] = p.gallery || [];
+      for (let start = 0; start < originals.length; start += 10) {
+        const batch = originals.slice(start, start + 10);
+        const thumbnails = await Promise.all(batch.map((file) => resizeForUpload(file, 480, 0.76)));
+        const form = new FormData();
+        form.set("recordId", String(p.id));
+        batch.forEach((file) => form.append("files", file));
+        thumbnails.forEach((file) => form.append("thumbnails", file));
+        const response = await fetch("/api/admin/gallery", { method: "POST", headers: { authorization: `Bearer ${token}` }, body: form });
+        const result = await readResponseJson<GalleryImage[] & { error?: string }>(response);
+        if (!response.ok) throw new Error(result.error);
+        gallery = result;
+      }
       update("gallery", gallery);
       showToast("갤러리 사진을 추가했습니다.");
     } catch {
@@ -1364,6 +1374,7 @@ function SubmissionQueue({
       {box === "deleted-images" ? (
         deletedGroups.length ? (
           <div className="deleted-image-groups">
+            <p>삭제된 기록의 이미지는 검토를 위해 30일간 보관되며, 이후 이 화면을 열 때 자동으로 영구 삭제됩니다.</p>
             {deletedGroups.map((group) => (
               <article key={group[0].deletion_group}>
                 <div className="deleted-image-head">
@@ -1421,7 +1432,7 @@ function SubmissionQueue({
       ) : (
         <div className="empty">
           <b>{box === "inbox" ? "접수된 제보가 없습니다." : "처리한 제보가 없습니다."}</b>
-          {box === "completed" && <p>확인 완료 또는 반영 완료한 제보가 이곳에 모입니다.</p>}
+          {box === "completed" && <p>확인 완료한 제보가 이곳에 모입니다.</p>}
         </div>
       )}
     </section>

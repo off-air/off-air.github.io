@@ -1,52 +1,95 @@
-import { env } from 'cloudflare:workers';
-import { schemaStatements } from '../db/schema';
+import { env } from "cloudflare:workers";
 
-type RuntimeEnv = { DB: D1Database; PROFILE_IMAGES: R2Bucket; YEOJEONHI_ADMIN_TOKEN?: string };
-const runtime = env as unknown as RuntimeEnv;
-let ready: Promise<void> | null = null;
+type RuntimeEnv = CloudflareEnv & { YEOJEONHI_ADMIN_TOKEN?: string };
+const runtime = env as RuntimeEnv;
 
-export function db(){ return runtime.DB; }
-export function profileImages(){ return runtime.PROFILE_IMAGES; }
-export function ensureDatabase(){
-  if(!ready) ready=(async()=>{await db().batch(schemaStatements.map(sql=>db().prepare(sql)));await ensureRecordColumns();await ensureGalleryColumns();await db().prepare("UPDATE submissions SET status='reviewed' WHERE status='resolved'").run();await seed();})();
-  return ready;
+export function db() { return runtime.DB; }
+export function profileImages() { return runtime.PROFILE_IMAGES; }
+
+// Schema changes run through versioned D1 migrations before deployment.
+export async function ensureDatabase() { return Promise.resolve(); }
+
+async function fixedLengthHash(value: string) {
+  return crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
 }
-async function ensureRecordColumns(){
-  const {results}=await db().prepare('PRAGMA table_info(records)').all<{name:string}>();
-  const columns=new Set(results.map(column=>column.name));
-  if(!columns.has('affiliation'))await db().prepare("ALTER TABLE records ADD COLUMN affiliation TEXT NOT NULL DEFAULT ''").run();
-  if(!columns.has('avatar_key'))await db().prepare('ALTER TABLE records ADD COLUMN avatar_key TEXT').run();
-  if(!columns.has('activity_status'))await db().prepare("ALTER TABLE records ADD COLUMN activity_status TEXT NOT NULL DEFAULT '소식이 끊긴 버튜버'").run();
+
+export async function isAdmin(request: Request) {
+  const configured = runtime.YEOJEONHI_ADMIN_TOKEN;
+  const provided = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
+  if (!configured || !provided) return false;
+  const [providedHash, configuredHash] = await Promise.all([fixedLengthHash(provided), fixedLengthHash(configured)]);
+  const providedBytes = new Uint8Array(providedHash);
+  const configuredBytes = new Uint8Array(configuredHash);
+  let difference = providedBytes.length ^ configuredBytes.length;
+  for (let index = 0; index < configuredBytes.length; index += 1)
+    difference |= (providedBytes[index] || 0) ^ configuredBytes[index];
+  return difference === 0;
 }
-async function ensureGalleryColumns(){
-  const {results}=await db().prepare('PRAGMA table_info(record_gallery)').all<{name:string}>();
-  if(!results.some(column=>column.name==='thumbnail_key'))await db().prepare('ALTER TABLE record_gallery ADD COLUMN thumbnail_key TEXT').run();
+
+export async function adminGuard(request: Request): Promise<Response | null> {
+  if (await isAdmin(request)) return null;
+  const allowed = await allowRequest(request, "admin-auth", 30, 900);
+  return Response.json(
+    { error: allowed ? "관리자 인증이 필요합니다." : "잠시 후 다시 시도해주세요." },
+    { status: allowed ? 401 : 429, headers: { "Cache-Control": "no-store" } },
+  );
 }
-async function seed(){
-  const row=await db().prepare('SELECT COUNT(*) AS count FROM records').first<{count:number}>();
-  if((row?.count||0)>0)return;
-  const samples=[
-    [1,'유노하라 모리','@morino_yuno','森','#879487','2020. 05. 12','2023. 08. 17','개인','숲의 밤을 닮은 목소리로, 늦은 시간의 이야기를 건넸습니다.','잔잔한 게임과 심야 잡담을 중심으로 활동했습니다. 별일 없던 하루도 특별한 기록으로 남기는 따뜻한 방송을 이어갔습니다.','["잡담","게임","심야방송"]',248],
-    [2,'아마세 루카','@amase_luca','流','#718096','2019. 02. 24','2022. 11. 03','소속','노래와 그림, 조용한 잡담 방송의 순간들이 남아 있습니다.','직접 그린 그림과 어쿠스틱 노래를 함께 나누던 크리에이터입니다. 계절마다 작은 온라인 전시를 열었습니다.','["노래","그림","잡담"]',391],
-    [3,'호시노 네네','@nene_starlit','星','#9290a1','2021. 07. 07','2024. 01. 21','개인','별을 읽고 게임을 하며, 새벽의 시간을 함께 보냈습니다.','천문 이야기를 곁들인 게임 방송으로 알려졌습니다. 매주 일요일에는 시청자와 한 주의 밤하늘을 돌아보았습니다.','["게임","천문","라디오"]',174],
-    [4,'사사키 유라','@yura_sasaki','結','#9c8f83','2018. 10. 09','2021. 06. 14','소속','작은 노래와 다정한 인사로 수많은 저녁을 이어주었습니다.','짧은 노래 방송과 사연 라디오를 진행했습니다. 방송을 끝낼 때마다 오늘도 잘 머물렀어요라는 인사를 남겼습니다.','["노래","라디오","사연"]',526],
-    [5,'미즈키 아오','@ao_mizuki','水','#7f9296','2022. 03. 30','2024. 09. 02','개인','느린 게임과 긴 이야기를 좋아했던 푸른 목소리의 기록입니다.','인디 게임을 천천히 플레이하며 장면과 음악을 오래 이야기했습니다. 방송 후 남긴 짧은 감상문도 함께 기억됩니다.','["인디게임","리뷰","잡담"]',119],
-    [6,'코하루 린','@koharu_rin','春','#a09187','2020. 04. 18','2023. 03. 28','소속','봄처럼 가벼운 웃음으로 평범한 하루를 환하게 만들었습니다.','리듬 게임과 밝은 아침 방송을 중심으로 활동했습니다. 팬들이 보낸 하루의 작은 목표를 함께 응원했습니다.','["리듬게임","아침방송","잡담"]',307],
-    [7,'츠키시로 레이','@rei_tsukishiro','月','#858b99','2019. 12. 01','2022. 08. 19','개인','낮은 목소리로 읽어주던 이야기와 달빛 같은 음악이 남았습니다.','고전 문학 낭독과 피아노 연주를 결합한 방송을 선보였습니다. 월말마다 한 편의 긴 이야기를 완독했습니다.','["낭독","피아노","문학"]',462],
-    [8,'나나세 토와','@towa_nanase','永','#8c968a','2021. 09. 17','2024. 05. 11','개인','여행하지 않는 여행 방송, 지도 위의 수많은 밤을 기억합니다.','온라인 지도와 시청자의 사연으로 세계를 걷는 독특한 방송을 만들었습니다. 매 방송마다 한 장의 엽서를 남겼습니다.','["여행","지도","사연"]',201],
-  ];
-  await db().batch(samples.map(s=>db().prepare('INSERT INTO records (id,name,handle,initial,color,debut,last_activity,category,note,bio,tags,base_memories) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)').bind(...s)));
+
+export async function allowRequest(request: Request, action: string, limit: number, windowSeconds: number) {
+  const identity = request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+  const keyMaterial = runtime.YEOJEONHI_ADMIN_TOKEN || "local-development";
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(keyMaterial), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const digest = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`${action}:${identity}`));
+  const clientHash = Array.from(new Uint8Array(digest)).map((value) => value.toString(16).padStart(2, "0")).join("");
+  const now = Math.floor(Date.now() / 1000);
+  const windowStart = Math.floor(now / windowSeconds) * windowSeconds;
+  await db().prepare("DELETE FROM rate_limits WHERE window_start < ?").bind(now - 604800).run();
+  await db().prepare("INSERT INTO rate_limits (action,client_hash,window_start,request_count) VALUES (?,?,?,1) ON CONFLICT(action,client_hash,window_start) DO UPDATE SET request_count=request_count+1").bind(action, clientHash, windowStart).run();
+  const row = await db().prepare("SELECT request_count FROM rate_limits WHERE action=? AND client_hash=? AND window_start=?").bind(action, clientHash, windowStart).first<{ request_count: number }>();
+  return (row?.request_count || 0) <= limit;
 }
-export function isAdmin(request:Request){const configured=runtime.YEOJEONHI_ADMIN_TOKEN;return Boolean(configured&&request.headers.get('authorization')===`Bearer ${configured}`)}
-export async function allowRequest(request:Request,action:string,limit:number,windowSeconds:number){
-  await ensureDatabase();
-  const identity=request.headers.get('cf-connecting-ip')||request.headers.get('x-forwarded-for')?.split(',')[0]||'local';
-  const bytes=new TextEncoder().encode(`${action}:${identity}`);
-  const digest=await crypto.subtle.digest('SHA-256',bytes);
-  const clientHash=Array.from(new Uint8Array(digest)).map(v=>v.toString(16).padStart(2,'0')).join('');
-  const windowStart=Math.floor(Date.now()/1000/windowSeconds)*windowSeconds;
-  await db().prepare('DELETE FROM rate_limits WHERE window_start < ?').bind(Math.floor(Date.now()/1000)-604800).run();
-  await db().prepare(`INSERT INTO rate_limits (action,client_hash,window_start,request_count) VALUES (?,?,?,1) ON CONFLICT(action,client_hash,window_start) DO UPDATE SET request_count=request_count+1`).bind(action,clientHash,windowStart).run();
-  const row=await db().prepare('SELECT request_count FROM rate_limits WHERE action=? AND client_hash=? AND window_start=?').bind(action,clientHash,windowStart).first<{request_count:number}>();
-  return (row?.request_count||0)<=limit;
+
+export async function readJson<T>(request: Request, maxBytes = 32 * 1024) {
+  const declaredLength = Number(request.headers.get("content-length") || 0);
+  if (declaredLength > maxBytes) throw new RequestBodyError(413);
+  if (!request.body) throw new RequestBodyError(400);
+  const reader = request.body.getReader();
+  const decoder = new TextDecoder();
+  let size = 0;
+  let text = "";
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > maxBytes) { await reader.cancel(); throw new RequestBodyError(413); }
+      text += decoder.decode(value, { stream: true });
+    }
+    text += decoder.decode();
+    return JSON.parse(text) as T;
+  } catch (error) {
+    if (error instanceof RequestBodyError) throw error;
+    throw new RequestBodyError(400);
+  }
+}
+
+export class RequestBodyError extends Error {
+  constructor(public readonly status: 400 | 413) {
+    super(status === 413 ? "요청이 너무 큽니다." : "요청 형식이 올바르지 않습니다.");
+  }
+}
+
+export function requestError(error: unknown) {
+  if (error instanceof RequestBodyError) return Response.json({ error: error.message }, { status: error.status });
+  console.error(JSON.stringify({ message: "request failed", error: error instanceof Error ? error.message : String(error) }));
+  return Response.json({ error: "요청을 처리하지 못했습니다." }, { status: 500 });
+}
+
+export async function hasImageSignature(file: File) {
+  const bytes = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+  if (file.type === "image/jpeg") return bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+  if (file.type === "image/png") return bytes.slice(0, 8).every((value, index) => value === [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a][index]);
+  if (file.type === "image/webp") return new TextDecoder().decode(bytes.slice(0, 4)) === "RIFF" && new TextDecoder().decode(bytes.slice(8, 12)) === "WEBP";
+  if (file.type === "image/gif") { const header = new TextDecoder().decode(bytes.slice(0, 6)); return header === "GIF87a" || header === "GIF89a"; }
+  return false;
 }
