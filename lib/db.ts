@@ -1,6 +1,10 @@
 import { env } from "cloudflare:workers";
 
-type RuntimeEnv = CloudflareEnv & { YEOJEONHI_ADMIN_TOKEN?: string };
+type RuntimeEnv = CloudflareEnv & {
+  YEOJEONHI_ADMIN_TOKEN?: string;
+  DEPLOYMENT_ROLE?: "public" | "admin";
+  ADMIN_EMAIL?: string;
+};
 const runtime = env as RuntimeEnv;
 
 export function db() { return runtime.DB; }
@@ -27,6 +31,10 @@ export async function isAdmin(request: Request) {
 }
 
 export async function adminGuard(request: Request): Promise<Response | null> {
+  if (runtime.DEPLOYMENT_ROLE !== "admin")
+    return Response.json({ error: "찾을 수 없습니다." }, { status: 404, headers: { "Cache-Control": "no-store" } });
+  const accessEmail = request.headers.get("cf-access-authenticated-user-email")?.trim().toLowerCase();
+  if (accessEmail && accessEmail === runtime.ADMIN_EMAIL?.trim().toLowerCase()) return null;
   if (await isAdmin(request)) return null;
   const allowed = await allowRequest(request, "admin-auth", 30, 900);
   return Response.json(

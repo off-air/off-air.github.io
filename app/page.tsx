@@ -1,5 +1,5 @@
 "use client";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
 type View = "home" | "detail" | "submit" | "admin" | "privacy";
 type GalleryImage = { id: number; record_id: number; object_key: string; thumbnail_key?: string };
@@ -227,6 +227,13 @@ export default function Home({ initialPath = "/" }: { initialPath?: string }) {
     }
   });
   const [toast, setToast] = useState("");
+  const [adminDeployment, setAdminDeployment] = useState(false);
+  useEffect(() => {
+    fetch("/api/runtime")
+      .then((response) => response.ok ? readResponseJson<{ adminDeployment: boolean }>(response) : { adminDeployment: false })
+      .then((runtime) => setAdminDeployment(runtime.adminDeployment))
+      .catch(() => setAdminDeployment(false));
+  }, []);
   useEffect(() => {
     fetch("/api/records")
       .then((r) => {
@@ -409,10 +416,10 @@ export default function Home({ initialPath = "/" }: { initialPath?: string }) {
         ))}
       {view === "submit" && <Submit onSubmit={submitForm} />}{" "}
       {view === "admin" && (
-        <Admin people={people} setPeople={setPeople} showToast={setToast} />
+        <Admin people={people} setPeople={setPeople} showToast={setToast} trustedAccess={adminDeployment} />
       )}{" "}
       {view === "privacy" && <Privacy />}
-      <Footer go={go} />
+      <Footer go={go} adminDeployment={adminDeployment} />
     </main>
   );
 }
@@ -912,10 +919,12 @@ function Admin({
   people,
   setPeople,
   showToast,
+  trustedAccess,
 }: {
   people: Person[];
   setPeople: (p: Person[]) => void;
   showToast: (s: string) => void;
+  trustedAccess: boolean;
 }) {
   const [active, setActive] = useState(1);
   const [token, setToken] = useState("");
@@ -930,7 +939,7 @@ function Admin({
         x.id === active ? ({ ...x, [key]: val } as Person) : x,
       ),
     );
-  const authenticate = async () => {
+  const authenticate = useCallback(async () => {
     try {
       const headers = { authorization: `Bearer ${token}` };
       const [recordsResponse, submissionsResponse, deletedImagesResponse] = await Promise.all([
@@ -951,7 +960,12 @@ function Admin({
       showToast("관리자 키가 올바르지 않습니다.");
     }
     setTimeout(() => showToast(""), 2200);
-  };
+  }, [setPeople, showToast, token]);
+  useEffect(() => {
+    if (!trustedAccess || authenticated) return;
+    const timer = setTimeout(() => void authenticate(), 0);
+    return () => clearTimeout(timer);
+  }, [authenticate, authenticated, trustedAccess]);
   const save = async () => {
     try {
       const response = await fetch("/api/admin/records", {
@@ -1438,14 +1452,14 @@ function SubmissionQueue({
     </section>
   );
 }
-function Footer({ go }: { go: (v: View) => void }) {
+function Footer({ go, adminDeployment }: { go: (v: View) => void; adminDeployment: boolean }) {
   return (
     <footer>
       <button onClick={() => go("home")}>OFF–AIR</button>
       <div>
         <button onClick={() => go("submit")}>기록 제보</button>
         <button onClick={() => go("privacy")}>데이터 안내</button>
-        <button onClick={() => go("admin")}>관리</button>
+        {adminDeployment && <button onClick={() => go("admin")}>관리</button>}
         <small>© 2026 OFF–AIR ARCHIVE</small>
       </div>
     </footer>

@@ -1,20 +1,14 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "yeojeonhi-vtuber-archive",
+  "name": "off-air-vtuber-archive-admin",
   "main": "dist/server/index.js",
   "compatibility_date": "2026-08-22",
   "compatibility_flags": ["nodejs_compat"],
   "no_bundle": true,
   "rules": [
-    {
-      "type": "ESModule",
-      "globs": ["**/*.js", "**/*.mjs"]
-    }
+    { "type": "ESModule", "globs": ["**/*.js", "**/*.mjs"] }
   ],
-  "assets": {
-    "binding": "ASSETS",
-    "directory": "./dist/client"
-  },
+  "assets": { "binding": "ASSETS", "directory": "./dist/client" },
   "d1_databases": [
     {
       "binding": "DB",
@@ -24,16 +18,11 @@
     }
   ],
   "r2_buckets": [
-    {
-      "binding": "PROFILE_IMAGES",
-      "bucket_name": "yeojeonhi-profile-images"
-    }
+    { "binding": "PROFILE_IMAGES", "bucket_name": "yeojeonhi-profile-images" }
   ],
   "vars": {
-    "DEPLOYMENT_ROLE": "public"
+    "DEPLOYMENT_ROLE": "admin",
+    "ADMIN_EMAIL": "lununs@naver.com"
   },
-  "observability": {
-    "enabled": true,
-    "head_sampling_rate": 1
-  }
+  "observability": { "enabled": true, "head_sampling_rate": 1 }
 }

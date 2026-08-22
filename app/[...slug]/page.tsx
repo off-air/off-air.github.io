@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { env } from "cloudflare:workers";
 import ArchiveApp from "../page";
 
 const records: Record<string, { name: string; description: string }> = {
@@ -112,6 +113,8 @@ export default async function RoutedArchivePage({
   params: Promise<{ slug: string[] }>;
 }) {
   const { slug } = await params;
+  const runtime = env as CloudflareEnv & { DEPLOYMENT_ROLE?: string };
+  if (slug.length === 1 && slug[0] === "admin" && runtime.DEPLOYMENT_ROLE !== "admin") notFound();
   const isRecord =
     slug.length === 2 && slug[0] === "records" && Boolean(records[slug[1]]);
   const isPage = slug.length === 1 && Boolean(pages[slug[0]]);
