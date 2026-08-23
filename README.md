@@ -2,12 +2,13 @@
 
 버추얼 크리에이터의 활동을 기억하고 보존하는 반응형 웹 아카이브입니다.
 
-- 공식 운영 주소: https://yeojeonhi-vtuber-archive.lununs.workers.dev
+- 공식 공개 주소: https://off-air.github.io
+- 관리자 주소: https://off-air-vtuber-archive-admin.lununs.workers.dev/admin
 
 ## 운영 구조
 
-- GitHub의 `main` 브랜치를 코드 원본으로 관리합니다.
-- 변경 사항은 GitHub Actions에서 검사한 뒤 개인 Cloudflare Worker에 배포합니다.
+- GitHub의 `main` 브랜치를 코드 원본으로 관리하고 공개 화면은 GitHub Pages에 배포합니다.
+- Cloudflare Worker는 기록·이미지·제보·관리자 기능을 제공하는 운영 서버로 사용합니다.
 - 기록·기억 집계·제보는 Cloudflare D1에, 프로필 및 갤러리 이미지는 Cloudflare R2에 저장합니다.
 - 코드 배포와 운영 데이터는 분리되어 있으므로 새 버전을 배포해도 기록과 이미지는 유지됩니다.
 
