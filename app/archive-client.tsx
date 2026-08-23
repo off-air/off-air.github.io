@@ -46,6 +46,11 @@ async function readResponseJson<T>(response: Response): Promise<T> {
   return await response.json() as T;
 }
 
+const publicApiUrl = (path: string) =>
+  typeof window !== "undefined" && window.location.hostname === "off-air.github.io"
+    ? `https://yeojeonhi-vtuber-archive.lununs.workers.dev${path}`
+    : path;
+
 const originalPeople: Person[] = [
   {
     id: 1,
@@ -249,14 +254,14 @@ export default function Home({
   const [adminDeployment, setAdminDeployment] = useState(false);
   const [adminDirty, setAdminDirty] = useState(false);
   useEffect(() => {
-    fetch("/api/runtime")
+    fetch(publicApiUrl("/api/runtime"))
       .then((response) => response.ok ? readResponseJson<{ adminDeployment: boolean }>(response) : { adminDeployment: false })
       .then((runtime) => setAdminDeployment(runtime.adminDeployment))
       .catch(() => setAdminDeployment(false));
   }, []);
   useEffect(() => {
     if (initialPeople) return;
-    fetch("/api/records")
+    fetch(publicApiUrl("/api/records"))
       .then((r) => {
         if (!r.ok) throw new Error();
         return readResponseJson<Person[]>(r);
@@ -320,7 +325,7 @@ export default function Home({
       localStorage.setItem("yeojeonhi-visitor", visitorId);
     }
     try {
-      const response = await fetch("/api/remembrance", {
+      const response = await fetch(publicApiUrl("/api/remembrance"), {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ recordId: id, visitorId, remember: isAdding }),
@@ -375,7 +380,7 @@ export default function Home({
     const form = e.target as HTMLFormElement;
     const fields = new FormData(form);
     try {
-      const response = await fetch("/api/submissions", {
+      const response = await fetch(publicApiUrl("/api/submissions"), {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -660,7 +665,7 @@ function Portrait({ p, large = false }: { p: Person; large?: boolean }) {
     >
       {p.avatar_key ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={`/api/profile-images/${encodeURIComponent(p.avatar_key)}`} alt={`${p.name} 프로필`} />
+        <img src={publicApiUrl(`/api/profile-images/${encodeURIComponent(p.avatar_key)}`)} alt={`${p.name} 프로필`} />
       ) : (
         <span>{p.initial}</span>
       )}
@@ -720,7 +725,7 @@ function Detail({
   const lightboxCloseRef = useRef<HTMLButtonElement>(null);
   const lightboxOpen = galleryIndex !== null;
   useEffect(() => {
-    fetch(`/api/gallery?recordId=${p.id}`)
+    fetch(publicApiUrl(`/api/gallery?recordId=${p.id}`))
       .then((response) => response.ok ? readResponseJson<GalleryImage[]>(response) : [])
       .then(setGallery)
       .catch(() => undefined);
@@ -821,7 +826,7 @@ function Detail({
             {gallery.map((image, index) => (
               <button key={image.id} onClick={() => setGalleryIndex(index)} aria-label={`${p.name} 갤러리 ${index + 1}번 크게 보기`}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={`/api/profile-images/${encodeURIComponent(image.thumbnail_key || image.object_key)}`} alt={`${p.name} 활동 기록 ${index + 1}`} loading="lazy" decoding="async" />
+                <img src={publicApiUrl(`/api/profile-images/${encodeURIComponent(image.thumbnail_key || image.object_key)}`)} alt={`${p.name} 활동 기록 ${index + 1}`} loading="lazy" decoding="async" />
               </button>
             ))}
           </div>
@@ -832,7 +837,7 @@ function Detail({
           <button ref={lightboxCloseRef} className="lightbox-close" onClick={() => setGalleryIndex(null)} aria-label="갤러리 닫기">×</button>
           <button className="lightbox-nav prev" disabled={galleryIndex === 0} onClick={(e) => { e.stopPropagation(); setGalleryIndex(Math.max(0, galleryIndex - 1)); }} aria-label="이전 사진">←</button>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={`/api/profile-images/${encodeURIComponent(gallery[galleryIndex].object_key)}`} alt={`${p.name} 활동 기록 ${galleryIndex + 1}`} onClick={(e) => e.stopPropagation()} />
+          <img src={publicApiUrl(`/api/profile-images/${encodeURIComponent(gallery[galleryIndex].object_key)}`)} alt={`${p.name} 활동 기록 ${galleryIndex + 1}`} onClick={(e) => e.stopPropagation()} />
           <button className="lightbox-nav next" disabled={galleryIndex === gallery.length - 1} onClick={(e) => { e.stopPropagation(); setGalleryIndex(Math.min(gallery.length - 1, galleryIndex + 1)); }} aria-label="다음 사진">→</button>
           <span>{galleryIndex + 1} / {gallery.length}</span>
         </div>
