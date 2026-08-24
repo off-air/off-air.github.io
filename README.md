@@ -50,6 +50,7 @@ GitHub 저장소의 Actions secrets에 아래 두 값을 등록합니다.
 Cloudflare Worker에는 `YEOJEONHI_ADMIN_TOKEN`을 secret으로 별도 설정해야 관리자 저장 기능을 사용할 수 있습니다. 이 값은 GitHub 저장소나 소스 파일에 넣지 않습니다.
 
 `main`에 반영된 변경은 검사 후 자동 배포됩니다. Pull Request에서는 배포 없이 코드 검사와 빌드만 실행됩니다.
+데이터베이스 구조가 바뀌는 버전은 배포 전에 해당 D1 마이그레이션을 먼저 적용합니다.
 
 ## 수동 확인
 
