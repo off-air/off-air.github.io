@@ -765,8 +765,8 @@ function Card({ p, query, open }: { p: Person; query: string; open: () => void }
         <span className="status-badge">{statusText(p)}</span>
         <p className="note"><Highlight text={p.note} query={query} /></p>
         <div className="last-seen">
-          <span>마지막 활동</span>
-          <strong>{p.last}</strong>
+          <span>마지막 활동으로부터</span>
+          <strong>{daysAgo(p.last).toLocaleString("ko-KR")}일</strong>
         </div>
       </div>
     </article>
