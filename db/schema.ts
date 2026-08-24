@@ -23,6 +23,9 @@ export const schemaStatements = [
     record_id INTEGER NOT NULL,
     object_key TEXT NOT NULL UNIQUE,
     thumbnail_key TEXT,
+    caption TEXT NOT NULL DEFAULT '',
+    memory_date TEXT NOT NULL DEFAULT '',
+    source_url TEXT NOT NULL DEFAULT '',
     sort_order INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (record_id) REFERENCES records(id) ON DELETE CASCADE
@@ -44,6 +47,19 @@ export const schemaStatements = [
     status TEXT NOT NULL DEFAULT 'pending',
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
+  `CREATE TABLE IF NOT EXISTS submission_images (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    submission_id INTEGER NOT NULL,
+    object_key TEXT NOT NULL UNIQUE,
+    thumbnail_key TEXT NOT NULL UNIQUE,
+    caption TEXT NOT NULL,
+    memory_date TEXT NOT NULL DEFAULT '',
+    source_url TEXT NOT NULL DEFAULT '',
+    published_gallery_id INTEGER,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (submission_id) REFERENCES submissions(id) ON DELETE CASCADE,
+    FOREIGN KEY (published_gallery_id) REFERENCES record_gallery(id) ON DELETE SET NULL
+  )`,
   `CREATE TABLE IF NOT EXISTS deleted_record_images (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     deletion_group TEXT NOT NULL,
@@ -62,6 +78,7 @@ export const schemaStatements = [
   `CREATE INDEX IF NOT EXISTS idx_records_published_last ON records(published, last_activity)`,
   `CREATE INDEX IF NOT EXISTS idx_record_gallery_record_order ON record_gallery(record_id, sort_order, id)`,
   `CREATE INDEX IF NOT EXISTS idx_submissions_status_created ON submissions(status, created_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_submission_images_submission ON submission_images(submission_id, id)`,
   `CREATE INDEX IF NOT EXISTS idx_deleted_record_images_group ON deleted_record_images(deletion_group, deleted_at)`,
   `CREATE INDEX IF NOT EXISTS idx_rate_limits_window ON rate_limits(window_start)`,
 ];

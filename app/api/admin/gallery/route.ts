@@ -2,6 +2,7 @@ import { adminGuard, db, ensureDatabase, hasImageSignature, profileImages, readJ
 
 const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 const extensions: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
+const validUrl = (value: string) => { try { const url = new URL(value); return url.protocol === "https:" || url.protocol === "http:"; } catch { return false; } };
 
 export async function POST(request: Request) {
   const denied = await adminGuard(request);
@@ -38,10 +39,25 @@ export async function POST(request: Request) {
       uploaded.push({ key, thumbnailKey, order: (count?.count || 0) + index });
     }
     await db().batch(uploaded.map((image) => db().prepare("INSERT INTO record_gallery (record_id,object_key,thumbnail_key,sort_order) VALUES (?,?,?,?)").bind(recordId, image.key, image.thumbnailKey, image.order)));
-    const { results } = await db().prepare("SELECT id,record_id,object_key,thumbnail_key FROM record_gallery WHERE record_id=? ORDER BY sort_order,id").bind(recordId).all();
+    const { results } = await db().prepare("SELECT id,record_id,object_key,thumbnail_key,caption,memory_date,source_url FROM record_gallery WHERE record_id=? ORDER BY sort_order,id").bind(recordId).all();
     return Response.json(results, { status: 201, headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     await Promise.all(uploadedKeys.map((key) => profileImages().delete(key)));
+    return requestError(error);
+  }
+}
+
+export async function PATCH(request: Request) {
+  const denied = await adminGuard(request);
+  if (denied) return denied;
+  try {
+    const { id, caption, memoryDate, sourceUrl } = await readJson<{ id?: unknown; caption?: unknown; memoryDate?: unknown; sourceUrl?: unknown }>(request, 4096);
+    if (!Number.isInteger(id) || typeof caption !== "string" || caption.length > 300 || typeof memoryDate !== "string" || memoryDate.length > 30 || typeof sourceUrl !== "string" || sourceUrl.length > 2048 || (sourceUrl && !validUrl(sourceUrl)))
+      return Response.json({ error: "갤러리 설명을 확인해주세요." }, { status: 400 });
+    const result = await db().prepare("UPDATE record_gallery SET caption=?,memory_date=?,source_url=? WHERE id=?").bind(caption.trim(), memoryDate.trim(), sourceUrl.trim(), id).run();
+    if (!result.meta.changes) return Response.json({ error: "이미지를 찾을 수 없습니다." }, { status: 404 });
+    return Response.json({ id, caption: caption.trim(), memory_date: memoryDate.trim(), source_url: sourceUrl.trim() }, { headers: { "Cache-Control": "no-store" } });
+  } catch (error) {
     return requestError(error);
   }
 }

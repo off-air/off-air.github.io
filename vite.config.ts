@@ -2,26 +2,26 @@ import tailwindcss from '@tailwindcss/postcss';
 import vinext from 'vinext';
 import { defineConfig } from 'vite';
 
-const SITE_CREATOR_PLACEHOLDER_DATABASE_ID =
-  '00000000-0000-4000-8000-000000000000';
+const LOCAL_DATABASE_ID = '7476325e-c1a2-4b36-bc27-5f2b236d3017';
 
 // macOS Seatbelt blocks FSEvents, so Codex previews need polling for HMR.
 const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === 'seatbelt';
 
 const localBindingConfig = {
   main: 'vinext/server/app-router-entry',
+  compatibility_date: '2026-08-24',
   compatibility_flags: ['nodejs_compat'],
   d1_databases: [
     {
       binding: 'DB',
-      database_name: 'site-creator-d1',
-      database_id: SITE_CREATOR_PLACEHOLDER_DATABASE_ID,
+      database_name: 'yeojeonhi-vtuber-archive-db',
+      database_id: LOCAL_DATABASE_ID,
     },
   ],
   r2_buckets: [
     {
       binding: 'PROFILE_IMAGES',
-      bucket_name: 'site-creator-r2',
+      bucket_name: 'yeojeonhi-profile-images',
     },
   ],
 };

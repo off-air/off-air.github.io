@@ -2,7 +2,15 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type View = "home" | "detail" | "submit" | "admin" | "privacy";
-type GalleryImage = { id: number; record_id: number; object_key: string; thumbnail_key?: string };
+type GalleryImage = {
+  id: number;
+  record_id: number;
+  object_key: string;
+  thumbnail_key?: string;
+  caption?: string;
+  memory_date?: string;
+  source_url?: string;
+};
 export type Person = {
   id: number;
   name: string;
@@ -32,6 +40,17 @@ type Submission = {
   source_url?: string;
   status: string;
   created_at: string;
+  images?: SubmissionImage[];
+};
+type SubmissionImage = {
+  id: number;
+  submission_id: number;
+  object_key: string;
+  thumbnail_key: string;
+  caption: string;
+  memory_date?: string;
+  source_url?: string;
+  published_gallery_id?: number | null;
 };
 type DeletedImage = {
   id: number;
@@ -203,6 +222,25 @@ async function resizeForUpload(file: File, maxWidth: number, quality: number) {
   return new File([blob], `${file.name.replace(/\.[^.]+$/, "")}.webp`, { type: "image/webp" });
 }
 
+function Highlight({ text, query }: { text: string; query: string }) {
+  const needle = query.trim();
+  if (!needle) return <>{text}</>;
+  const index = text.toLocaleLowerCase("ko").indexOf(needle.toLocaleLowerCase("ko"));
+  if (index < 0) return <>{text}</>;
+  return <>{text.slice(0, index)}<mark>{text.slice(index, index + needle.length)}</mark>{text.slice(index + needle.length)}</>;
+}
+
+function ProgressiveImage({ src, alt, eager = false }: { src: string; alt: string; eager?: boolean }) {
+  const [loaded, setLoaded] = useState(false);
+  return (
+    <span className={`progressive-image ${loaded ? "loaded" : "loading"}`}>
+      <span className="image-placeholder" aria-hidden="true" />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={src} alt={alt} loading={eager ? "eager" : "lazy"} decoding="async" onLoad={() => setLoaded(true)} />
+    </span>
+  );
+}
+
 function viewFromPath(path: string): View {
   if (/^\/records\/\d+$/.test(path)) return "detail";
   const name = path.slice(1);
@@ -355,7 +393,7 @@ export default function Home({
       people
         .filter((p) => statusFilters.includes(statusText(p)))
         .filter((p) =>
-          (p.name + p.tags.join(""))
+          ([p.name, p.affiliation, p.category, p.note, p.bio, ...p.tags].filter(Boolean).join(" "))
             .toLowerCase()
             .includes(query.toLowerCase()),
         )
@@ -373,29 +411,28 @@ export default function Home({
     (currentPage - 1) * pageSize,
     currentPage * pageSize,
   );
-  const submitForm = async (e: FormEvent) => {
+  const submitForm = async (e: FormEvent, selectedFiles: File[]): Promise<boolean> => {
     e.preventDefault();
-    if (submitting) return;
+    if (submitting) return false;
     setSubmitting(true);
     const form = e.target as HTMLFormElement;
     const fields = new FormData(form);
     try {
+      fields.delete("images");
+      selectedFiles.forEach((file) => fields.append("images", file));
+      const thumbnails = await Promise.all(selectedFiles.map((file) => resizeForUpload(file, 480, 0.76)));
+      thumbnails.forEach((thumbnail) => fields.append("thumbnails", thumbnail));
       const response = await fetch(publicApiUrl("/api/submissions"), {
         method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          type: fields.get("type"),
-          name: fields.get("name"),
-          channelUrl: fields.get("channelUrl"),
-          message: fields.get("message"),
-          sourceUrl: fields.get("sourceUrl"),
-          website: fields.get("website"),
-        }),
+        body: fields,
       });
       const data = await readResponseJson<{ error?: string }>(response);
       if (!response.ok) throw new Error(data.error);
       form.reset();
       setToast("제보가 안전하게 접수되었습니다.");
+      setSubmitting(false);
+      setTimeout(() => setToast(""), 2600);
+      return true;
     } catch (error) {
       setToast(
         error instanceof Error ? error.message : "제보를 접수하지 못했습니다.",
@@ -403,6 +440,7 @@ export default function Home({
     }
     setSubmitting(false);
     setTimeout(() => setToast(""), 2600);
+    return false;
   };
   return (
     <main>
@@ -412,6 +450,7 @@ export default function Home({
           {toast}
         </div>
       )}
+      <div className="view-transition" key={view === "detail" ? `${view}-${selected.id}` : view}>
       {view === "home" && (
         <Archive
           list={pagedList}
@@ -462,14 +501,22 @@ export default function Home({
         <Admin people={people} setPeople={setPeople} showToast={setToast} trustedAccess={adminDeployment} onDirtyChange={setAdminDirty} />
       )}{" "}
       {view === "privacy" && <Privacy />}
+      </div>
       <Footer go={go} adminDeployment={adminDeployment} />
     </main>
   );
 }
 
 function Header({ view, go }: { view: View; go: (v: View) => void }) {
+  const [compact, setCompact] = useState(false);
+  useEffect(() => {
+    const update = () => setCompact(window.scrollY > 28);
+    update();
+    addEventListener("scroll", update, { passive: true });
+    return () => removeEventListener("scroll", update);
+  }, []);
   return (
-    <header className="site-header">
+    <header className={`site-header ${compact ? "compact" : ""}`}>
       <button className="wordmark" onClick={() => go("home")}>
         OFF<span>–</span>AIR
       </button>
@@ -620,9 +667,9 @@ function Archive({
           </div>
           <p className="result-count">기록 {total}건</p>
           {list.length ? (
-            <div className={`card-grid ${layout === "list" ? "list-view" : ""}`}>
+            <div key={layout} className={`card-grid layout-transition ${layout === "list" ? "list-view" : ""}`}>
               {list.map((p) => (
-                <Card key={p.id} p={p} open={() => open(p)} />
+                <Card key={p.id} p={p} query={query} open={() => open(p)} />
               ))}
             </div>
           ) : (
@@ -663,17 +710,23 @@ function Portrait({ p, large = false }: { p: Person; large?: boolean }) {
       className={`portrait ${large ? "large" : ""}`}
       style={{ "--portrait": p.color } as React.CSSProperties}
     >
-      {p.avatar_key ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={publicApiUrl(`/api/profile-images/${encodeURIComponent(p.avatar_key)}`)} alt={`${p.name} 프로필`} />
-      ) : (
-        <span>{p.initial}</span>
-      )}
+      <div className="portrait-media">
+        {p.avatar_key ? (
+          <ProgressiveImage src={publicApiUrl(`/api/profile-images/${encodeURIComponent(p.avatar_key)}`)} alt={`${p.name} 프로필`} eager={large} />
+        ) : (
+          <span>{p.initial}</span>
+        )}
+      </div>
       <small>{p.avatar_key ? "archive portrait" : "archive portrait · sample"}</small>
     </div>
   );
 }
-function Card({ p, open }: { p: Person; open: () => void }) {
+function Card({ p, query, open }: { p: Person; query: string; open: () => void }) {
+  const resetPointer = (element: HTMLElement) => {
+    element.style.setProperty("--tilt-x", "0deg");
+    element.style.setProperty("--tilt-y", "0deg");
+    element.style.setProperty("--glow-opacity", "0");
+  };
   return (
     <article
       className="record-card"
@@ -681,6 +734,20 @@ function Card({ p, open }: { p: Person; open: () => void }) {
       tabIndex={0}
       role="link"
       aria-label={`${p.name} 기록 보기`}
+      onPointerMove={(event) => {
+        if (event.pointerType !== "mouse") return;
+        const card = event.currentTarget;
+        const rect = card.getBoundingClientRect();
+        const x = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
+        const y = Math.min(1, Math.max(0, (event.clientY - rect.top) / rect.height));
+        card.style.setProperty("--tilt-x", `${((0.5 - y) * 1.6).toFixed(2)}deg`);
+        card.style.setProperty("--tilt-y", `${((x - 0.5) * 1.6).toFixed(2)}deg`);
+        card.style.setProperty("--glow-x", `${(x * 100).toFixed(1)}%`);
+        card.style.setProperty("--glow-y", `${(y * 100).toFixed(1)}%`);
+        card.style.setProperty("--glow-opacity", "1");
+      }}
+      onPointerLeave={(event) => resetPointer(event.currentTarget)}
+      onBlur={(event) => resetPointer(event.currentTarget)}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
@@ -692,15 +759,15 @@ function Card({ p, open }: { p: Person; open: () => void }) {
       <div className="card-body">
         <div className="identity">
           <div>
-            <h3>{p.name}</h3>
-            <p>{p.affiliation || p.category} · {p.tags.slice(0, 2).map((tag) => `#${tag}`).join(" ")}</p>
+            <h3><Highlight text={p.name} query={query} /></h3>
+            <p><Highlight text={`${p.affiliation || p.category} · ${p.tags.slice(0, 2).map((tag) => `#${tag}`).join(" ")}`} query={query} /></p>
           </div>
           <span className="record-link">
             기록 보기 ↗
           </span>
         </div>
         <span className="status-badge">{statusText(p)}</span>
-        <p className="note">{p.note}</p>
+        <p className="note"><Highlight text={p.note} query={query} /></p>
         <div className="last-seen">
           <span>마지막 활동</span>
           <strong>{p.last}</strong>
@@ -723,7 +790,9 @@ function Detail({
   const [galleryIndex, setGalleryIndex] = useState<number | null>(null);
   const [gallery, setGallery] = useState(p.gallery || []);
   const lightboxCloseRef = useRef<HTMLButtonElement>(null);
+  const detailHeroRef = useRef<HTMLElement>(null);
   const lightboxOpen = galleryIndex !== null;
+  const activeGalleryImage = galleryIndex === null ? null : gallery[galleryIndex];
   useEffect(() => {
     fetch(publicApiUrl(`/api/gallery?recordId=${p.id}`))
       .then((response) => response.ok ? readResponseJson<GalleryImage[]>(response) : [])
@@ -753,12 +822,28 @@ function Detail({
     addEventListener("keydown", onKeyDown);
     return () => removeEventListener("keydown", onKeyDown);
   }, [gallery.length, galleryIndex]);
+  useEffect(() => {
+    const hero = detailHeroRef.current;
+    if (!hero || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    let frame = 0;
+    const updateDepth = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const rect = hero.getBoundingClientRect();
+        const shift = Math.max(-12, Math.min(12, (window.innerHeight / 2 - (rect.top + rect.height / 2)) * 0.035));
+        hero.style.setProperty("--profile-depth", `${shift.toFixed(1)}px`);
+      });
+    };
+    updateDepth();
+    addEventListener("scroll", updateDepth, { passive: true });
+    return () => { cancelAnimationFrame(frame); removeEventListener("scroll", updateDepth); };
+  }, [p.id]);
   return (
     <div className="page detail-page">
       <button className="back" onClick={back}>
         ← 기록 목록으로
       </button>
-      <section className="detail-hero">
+      <section className="detail-hero" ref={detailHeroRef}>
         <Portrait p={p} large />
         <div className="detail-intro">
           <p className="eyebrow">ARCHIVE NO. {String(p.id).padStart(3, "0")}</p>
@@ -771,7 +856,7 @@ function Detail({
             onClick={remember}
             aria-pressed={remembered}
           >
-            <span>{remembered ? "●" : "○"}</span>기억하고 있어요
+            <span aria-hidden="true">{remembered ? "●" : "○"}</span><b>기억하고 있어요</b>
           </button>
           <small>
             선택 여부는 이 기기에, 전체 기억 수는 서버에 저장됩니다.
@@ -824,22 +909,35 @@ function Detail({
           </div>
           <div className="gallery-grid">
             {gallery.map((image, index) => (
-              <button key={image.id} onClick={() => setGalleryIndex(index)} aria-label={`${p.name} 갤러리 ${index + 1}번 크게 보기`}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={publicApiUrl(`/api/profile-images/${encodeURIComponent(image.thumbnail_key || image.object_key)}`)} alt={`${p.name} 활동 기록 ${index + 1}`} loading="lazy" decoding="async" />
+              <button className="gallery-card" key={image.id} onClick={() => setGalleryIndex(index)} aria-label={`${p.name} 갤러리 ${index + 1}번 크게 보기`}>
+                <ProgressiveImage src={publicApiUrl(`/api/profile-images/${encodeURIComponent(image.thumbnail_key || image.object_key)}`)} alt={`${p.name} 활동 기록 ${index + 1}`} />
+                {(image.caption || image.memory_date) && (
+                  <span className="gallery-caption">
+                    {image.memory_date && <time>{image.memory_date}</time>}
+                    {image.caption && <b>{image.caption}</b>}
+                  </span>
+                )}
               </button>
             ))}
           </div>
         </section>
       )}
-      {galleryIndex !== null && (
+      {galleryIndex !== null && activeGalleryImage && (
         <div className="lightbox" role="dialog" aria-modal="true" aria-label={`${p.name} 갤러리`} onClick={() => setGalleryIndex(null)}>
           <button ref={lightboxCloseRef} className="lightbox-close" onClick={() => setGalleryIndex(null)} aria-label="갤러리 닫기">×</button>
           <button className="lightbox-nav prev" disabled={galleryIndex === 0} onClick={(e) => { e.stopPropagation(); setGalleryIndex(Math.max(0, galleryIndex - 1)); }} aria-label="이전 사진">←</button>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={publicApiUrl(`/api/profile-images/${encodeURIComponent(gallery[galleryIndex].object_key)}`)} alt={`${p.name} 활동 기록 ${galleryIndex + 1}`} onClick={(e) => e.stopPropagation()} />
+          <figure className="lightbox-stage" key={activeGalleryImage.id} onClick={(e) => e.stopPropagation()}>
+            <ProgressiveImage src={publicApiUrl(`/api/profile-images/${encodeURIComponent(activeGalleryImage.object_key)}`)} alt={`${p.name} 활동 기록 ${galleryIndex + 1}`} eager />
+            {(activeGalleryImage.caption || activeGalleryImage.memory_date || activeGalleryImage.source_url) && (
+              <figcaption>
+                {activeGalleryImage.memory_date && <time>{activeGalleryImage.memory_date}</time>}
+                {activeGalleryImage.caption && <p>{activeGalleryImage.caption}</p>}
+                {activeGalleryImage.source_url && <a href={activeGalleryImage.source_url} target="_blank" rel="noreferrer">출처 확인 ↗</a>}
+              </figcaption>
+            )}
+          </figure>
           <button className="lightbox-nav next" disabled={galleryIndex === gallery.length - 1} onClick={(e) => { e.stopPropagation(); setGalleryIndex(Math.min(gallery.length - 1, galleryIndex + 1)); }} aria-label="다음 사진">→</button>
-          <span>{galleryIndex + 1} / {gallery.length}</span>
+          <span className="lightbox-count">{galleryIndex + 1} / {gallery.length}</span>
         </div>
       )}
       <section className="elapsed">
@@ -899,8 +997,8 @@ function Privacy() {
           <b>02</b>
           <h2>제보 내용</h2>
           <p>
-            활동명, 공개 채널 주소, 제보 내용과 출처를 검토 목적으로 저장합니다.
-            개인 연락처는 요청하지 않습니다.
+            활동명, 공개 채널 주소, 제보 내용과 출처, 선택적으로 첨부한 이미지와
+            이미지에 담긴 기억을 검토 목적으로 저장합니다. 개인 연락처는 요청하지 않습니다.
           </p>
         </article>
         <article>
@@ -923,7 +1021,55 @@ function Privacy() {
     </div>
   );
 }
-function Submit({ onSubmit, submitting }: { onSubmit: (e: FormEvent) => void; submitting: boolean }) {
+function SubmissionImageDraft({ file, index, remove }: { file: File; index: number; remove: () => void }) {
+  const preview = useMemo(() => URL.createObjectURL(file), [file]);
+  useEffect(() => () => URL.revokeObjectURL(preview), [preview]);
+  return (
+    <article className="submission-image-draft">
+      <div className="submission-image-preview">
+        <ProgressiveImage src={preview} alt={`${file.name} 미리보기`} eager />
+        <button type="button" onClick={remove} aria-label={`${file.name} 첨부 취소`}>×</button>
+      </div>
+      <div>
+        <span className="file-name">{index + 1}. {file.name}</span>
+        <label>
+          <span>이 이미지에 담긴 기억 · 필수</span>
+          <textarea name="imageCaption" required maxLength={300} rows={3} placeholder="어떤 순간인지, 왜 기억하고 싶은지 적어주세요." />
+        </label>
+        <div className="field-row">
+          <label>
+            <span>촬영 또는 게시 시기 · 선택</span>
+            <input name="imageDate" maxLength={30} placeholder="예: 2022년 여름" />
+          </label>
+          <label>
+            <span>이미지 출처 · 선택</span>
+            <input name="imageSource" type="url" placeholder="https://" />
+          </label>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function Submit({ onSubmit, submitting }: { onSubmit: (e: FormEvent, images: File[]) => Promise<boolean>; submitting: boolean }) {
+  const [images, setImages] = useState<File[]>([]);
+  const [fileError, setFileError] = useState("");
+  const chooseImages = (files?: FileList | null) => {
+    const selected = Array.from(files || []);
+    if (selected.length > 5) {
+      setFileError("이미지는 한 번에 최대 5장까지 첨부할 수 있습니다.");
+      setImages([]);
+      return false;
+    }
+    if (selected.some((file) => file.size > 1024 * 1024 || !["image/jpeg", "image/png", "image/webp"].includes(file.type))) {
+      setFileError("각 1MB 이하의 JPG, PNG, WEBP 이미지만 첨부할 수 있습니다.");
+      setImages([]);
+      return false;
+    }
+    setFileError("");
+    setImages(selected);
+    return true;
+  };
   return (
     <div className="page submit-page">
       <section className="form-wrap">
@@ -940,7 +1086,7 @@ function Submit({ onSubmit, submitting }: { onSubmit: (e: FormEvent) => void; su
             관리자가 확인한 뒤 기록에 반영합니다.
           </p>
         </div>
-        <form onSubmit={onSubmit}>
+        <form onSubmit={async (event) => { if (await onSubmit(event, images)) setImages([]); }}>
           <label className="hp-field" aria-hidden="true">
             웹사이트
             <input name="website" tabIndex={-1} autoComplete="off" />
@@ -990,11 +1136,32 @@ function Submit({ onSubmit, submitting }: { onSubmit: (e: FormEvent) => void; su
               placeholder="공식 채널, 게시물 등의 주소"
             />
           </label>
+          <div className="submission-image-field">
+            <label>
+              <span>기억을 담은 이미지 · 선택 / 최대 5장, 각 1MB</span>
+              <input name="images" type="file" multiple accept="image/jpeg,image/png,image/webp" onChange={(event) => { if (!chooseImages(event.target.files)) event.currentTarget.value = ""; }} />
+            </label>
+            <p>첨부 이미지는 관리자가 출처와 내용을 확인한 뒤에만 공개 갤러리에 반영됩니다.</p>
+            {fileError && <strong role="alert">{fileError}</strong>}
+            {images.length > 0 && (
+              <div className="submission-image-list">
+                {images.map((file, index) => (
+                  <SubmissionImageDraft key={`${file.name}-${file.lastModified}-${index}`} file={file} index={index} remove={() => setImages((current) => current.filter((_, itemIndex) => itemIndex !== index))} />
+                ))}
+              </div>
+            )}
+          </div>
           <label className="checkbox">
-            <input type="checkbox" required />
+            <input type="checkbox" name="publicInfoConsent" value="yes" required />
             <span>개인정보가 아닌 공개된 정보임을 확인했습니다.</span>
           </label>
-          <button className="primary" type="submit" disabled={submitting}>
+          {images.length > 0 && (
+            <label className="checkbox">
+              <input type="checkbox" name="imageRights" value="yes" required />
+              <span>이미지의 검토와 아카이브 공개에 필요한 권리가 있음을 확인했습니다.</span>
+            </label>
+          )}
+          <button className="primary" type="submit" disabled={submitting || Boolean(fileError)}>
             {submitting ? "제보 보내는 중…" : "제보 보내기"} <span>{submitting ? "" : "→"}</span>
           </button>
         </form>
@@ -1010,7 +1177,7 @@ function Admin({
   onDirtyChange,
 }: {
   people: Person[];
-  setPeople: (p: Person[]) => void;
+  setPeople: React.Dispatch<React.SetStateAction<Person[]>>;
   showToast: (s: string) => void;
   trustedAccess: boolean;
   onDirtyChange: (dirty: boolean) => void;
@@ -1195,6 +1362,25 @@ function Admin({
     }
     setTimeout(() => showToast(""), 2200);
   };
+  const updateGalleryMeta = async (id: number, caption: string, memoryDate: string, sourceUrl: string) => {
+    try {
+      const response = await fetch("/api/admin/gallery", {
+        method: "PATCH",
+        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+        body: JSON.stringify({ id, caption, memoryDate, sourceUrl }),
+      });
+      const updated = await readResponseJson<{ id: number; caption: string; memory_date: string; source_url: string; error?: string }>(response);
+      if (!response.ok) throw new Error(updated.error);
+      setPeople((current) => current.map((record) => ({
+        ...record,
+        gallery: (record.gallery || []).map((image) => image.id === id ? { ...image, ...updated } : image),
+      })));
+      showToast("갤러리 설명을 저장했습니다.");
+    } catch (error) {
+      showToast(error instanceof Error && error.message ? error.message : "갤러리 설명을 저장하지 못했습니다.");
+    }
+    setTimeout(() => showToast(""), 2200);
+  };
   if (!authenticated)
     return (
       <div className="page admin-page">
@@ -1241,6 +1427,26 @@ function Admin({
       showToast("제보 상태를 변경하지 못했습니다.");
     }
     setTimeout(() => showToast(""), 2200);
+  };
+  const publishSubmissionImage = async (imageId: number, recordId: number) => {
+    try {
+      const response = await fetch("/api/admin/submissions", {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+        body: JSON.stringify({ imageId, recordId }),
+      });
+      const galleryImage = await readResponseJson<GalleryImage & { submission_image_id: number; error?: string }>(response);
+      if (!response.ok) throw new Error(galleryImage.error);
+      setSubmissions((current) => current.map((submission) => ({
+        ...submission,
+        images: (submission.images || []).map((image) => image.id === imageId ? { ...image, published_gallery_id: galleryImage.id } : image),
+      })));
+      setPeople((current) => current.map((record) => record.id === recordId ? { ...record, gallery: [...(record.gallery || []), galleryImage] } : record));
+      showToast("제보 이미지를 선택한 기록의 갤러리에 반영했습니다.");
+    } catch (error) {
+      showToast(error instanceof Error && error.message ? error.message : "제보 이미지를 반영하지 못했습니다.");
+    }
+    setTimeout(() => showToast(""), 2400);
   };
   const purgeDeletedImages = async (deletionGroup: string) => {
     if (!window.confirm("이 기록의 보관 이미지를 서버에서 영구 삭제할까요? 이 작업은 되돌릴 수 없습니다.")) return;
@@ -1449,13 +1655,9 @@ function Admin({
                 <input type="file" multiple accept="image/jpeg,image/png,image/webp" onChange={(e) => { uploadGallery(e.target.files); e.currentTarget.value = ""; }} />
               </label>
               {(p.gallery || []).length > 0 && (
-                <div className="gallery-admin-grid">
+                <div className="gallery-admin-list">
                   {(p.gallery || []).map((image, index) => (
-                    <div key={image.id}>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={`/api/profile-images/${encodeURIComponent(image.thumbnail_key || image.object_key)}`} alt={`갤러리 ${index + 1}`} loading="lazy" decoding="async" />
-                      <button onClick={() => deleteGalleryImage(image.id)} aria-label={`갤러리 ${index + 1} 삭제`}>삭제</button>
-                    </div>
+                    <GalleryAdminCard key={image.id} image={image} index={index} save={updateGalleryMeta} remove={() => deleteGalleryImage(image.id)} />
                   ))}
                 </div>
               )}
@@ -1463,19 +1665,81 @@ function Admin({
           </div>
         </section>
       </div>
-      <SubmissionQueue items={submissions} update={updateSubmission} deletedImages={deletedImages} purgeDeletedImages={purgeDeletedImages} />
+      <SubmissionQueue items={submissions} update={updateSubmission} people={people} publishImage={publishSubmissionImage} deletedImages={deletedImages} purgeDeletedImages={purgeDeletedImages} />
     </div>
+  );
+}
+
+function GalleryAdminCard({ image, index, save, remove }: {
+  image: GalleryImage;
+  index: number;
+  save: (id: number, caption: string, memoryDate: string, sourceUrl: string) => void;
+  remove: () => void;
+}) {
+  const [caption, setCaption] = useState(image.caption || "");
+  const [memoryDate, setMemoryDate] = useState(image.memory_date || "");
+  const [sourceUrl, setSourceUrl] = useState(image.source_url || "");
+  return (
+    <article className="gallery-admin-card">
+      <div className="gallery-admin-preview">
+        <ProgressiveImage src={`/api/profile-images/${encodeURIComponent(image.thumbnail_key || image.object_key)}`} alt={`갤러리 ${index + 1}`} />
+        <span>{String(index + 1).padStart(2, "0")}</span>
+      </div>
+      <div className="gallery-admin-fields">
+        <label>
+          <span>사진에 담긴 기억</span>
+          <textarea value={caption} maxLength={300} rows={3} onChange={(event) => setCaption(event.target.value)} placeholder="공개 갤러리에 표시할 설명" />
+        </label>
+        <div className="field-row">
+          <label><span>시기</span><input value={memoryDate} maxLength={30} onChange={(event) => setMemoryDate(event.target.value)} placeholder="예: 2022년 여름" /></label>
+          <label><span>출처</span><input value={sourceUrl} type="url" onChange={(event) => setSourceUrl(event.target.value)} placeholder="https://" /></label>
+        </div>
+        <div className="gallery-admin-actions">
+          <button type="button" className="danger" onClick={remove}>사진 삭제</button>
+          <button type="button" className="secondary" onClick={() => save(image.id, caption, memoryDate, sourceUrl)}>설명 저장</button>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function SubmissionImageReview({ image, people, publish }: { image: SubmissionImage; people: Person[]; publish: (imageId: number, recordId: number) => void }) {
+  const [recordId, setRecordId] = useState(people[0]?.id || 0);
+  return (
+    <article className="submission-image-review">
+      <div className="submission-image-review-preview">
+        <ProgressiveImage src={`/api/profile-images/${encodeURIComponent(image.thumbnail_key)}`} alt="제보 이미지 미리보기" />
+        {image.published_gallery_id && <span>갤러리 반영 완료</span>}
+      </div>
+      <div>
+        {image.memory_date && <time>{image.memory_date}</time>}
+        <p>{image.caption}</p>
+        {image.source_url && <a href={image.source_url} target="_blank" rel="noreferrer">이미지 출처 확인 ↗</a>}
+        <div className="submission-image-publish">
+          <select value={recordId} onChange={(event) => setRecordId(Number(event.target.value))} aria-label="이미지를 반영할 기록">
+            {people.map((person) => <option key={person.id} value={person.id}>{person.name}</option>)}
+          </select>
+          <button type="button" className="secondary" disabled={Boolean(image.published_gallery_id) || !recordId} onClick={() => publish(image.id, recordId)}>
+            {image.published_gallery_id ? "반영됨" : "이 기록에 반영"}
+          </button>
+        </div>
+      </div>
+    </article>
   );
 }
 
 function SubmissionQueue({
   items,
   update,
+  people,
+  publishImage,
   deletedImages,
   purgeDeletedImages,
 }: {
   items: Submission[];
   update: (id: number, status: string) => void;
+  people: Person[];
+  publishImage: (imageId: number, recordId: number) => void;
   deletedImages: DeletedImage[];
   purgeDeletedImages: (deletionGroup: string) => void;
 }) {
@@ -1563,6 +1827,12 @@ function SubmissionQueue({
                   </a>
                 )}
               </div>
+              {(item.images || []).length > 0 && (
+                <div className="submission-image-reviews">
+                  <h4>첨부 이미지 {item.images?.length}장</h4>
+                  {item.images?.map((image) => <SubmissionImageReview key={image.id} image={image} people={people} publish={publishImage} />)}
+                </div>
+              )}
               <label>
                 <span>처리 상태</span>
                 <select

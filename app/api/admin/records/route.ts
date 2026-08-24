@@ -11,7 +11,7 @@ export async function GET(request: Request) {
   await ensureDatabase();
   const [{ results }, { results: gallery }] = await Promise.all([
     db().prepare("SELECT * FROM records ORDER BY id").all(),
-    db().prepare("SELECT id,record_id,object_key,thumbnail_key FROM record_gallery ORDER BY sort_order,id").all<{ id: number; record_id: number; object_key: string; thumbnail_key: string | null }>(),
+    db().prepare("SELECT id,record_id,object_key,thumbnail_key,caption,memory_date,source_url FROM record_gallery ORDER BY sort_order,id").all<{ id: number; record_id: number; object_key: string; thumbnail_key: string | null; caption: string; memory_date: string; source_url: string }>(),
   ]);
   const rows = results as unknown as Array<{ id: number; tags: string; last_activity: string; [key: string]: unknown }>;
   return Response.json(rows.map((row) => {
