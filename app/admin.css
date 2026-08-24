@@ -4,7 +4,7 @@
 .admin-login p { margin: 16px 0 0; color: var(--muted); font-size: 10px; }
 .hp-field { position: absolute !important; width: 1px !important; height: 1px !important; overflow: hidden !important; clip: rect(0 0 0 0) !important; white-space: nowrap !important; }
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid #596b80; outline-offset: 3px; }
-:root { --muted: #aaa69d; --blue: #8b9daf; }
+:root { --muted: #65706b; --blue: #596f82; }
 .not-found { min-height: 100vh; padding: 80px 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; background: var(--paper); color: var(--ink); }
 .not-found > p { margin: 0 0 28px; color: var(--blue); font-size: 10px; letter-spacing: .18em; }
 .not-found h1 { margin: 0; font: 400 clamp(32px, 5vw, 52px) Georgia, 'Noto Serif KR', serif; letter-spacing: -.04em; }
@@ -32,3 +32,28 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .admin-auth label { width: min(440px, 100%); }
 .admin-auth p { margin: 0 0 14px; color: var(--muted); font-size: 10px; }
 @media (max-width: 720px) { .admin-auth { align-items: stretch; flex-direction: column; gap: 10px; } .admin-auth p { margin: 0; } .submission-list, .privacy-grid { grid-template-columns: 1fr; } .submission-list p { min-height: 0; } }
+
+/* Rounded light surfaces for secondary and administrative views */
+.admin-login,
+.submission-list article,
+.admin-auth {
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  box-shadow: var(--shadow-soft);
+}
+.submission-list article { border-color: var(--line); }
+.submission-list select { border-radius: 10px; }
+.privacy-grid {
+  overflow: hidden;
+  border-radius: var(--radius-xl);
+  background: var(--line);
+  box-shadow: var(--shadow-soft);
+}
+.privacy-grid article { background: var(--card); }
+.admin-auth { background: var(--surface); }
+.not-found a {
+  padding: 10px 16px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+}
