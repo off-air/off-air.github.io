@@ -695,10 +695,6 @@ function Archive({
               </button>
             </nav>
           )}
-          <p className="fiction-note">
-            ※ 이 프로토타입의 인물과 활동 기록은 모두 화면 시연을 위한 가상
-            데이터입니다.
-          </p>
         </>
       )}
     </section>
