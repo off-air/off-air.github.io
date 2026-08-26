@@ -450,3 +450,119 @@ footer{
   .submission-tabs button{padding:11px 12px}
   .lightbox-stage{border-radius:var(--radius-lg)}
 }
+
+/* Record quick view and pointer-responsive depth */
+:root{--pointer-x:50vw;--pointer-y:38vh}
+.site-shell{position:relative;z-index:1}
+.pointer-aura{
+  position:fixed;
+  z-index:0;
+  inset:0;
+  pointer-events:none;
+  background:radial-gradient(520px circle at var(--pointer-x) var(--pointer-y),rgba(105,132,151,.075),transparent 72%);
+  opacity:.82;
+  transition:opacity .25s ease;
+}
+.toast{z-index:120}
+
+.record-card .portrait-media{
+  transform:translate3d(var(--portrait-shift-x,0),var(--portrait-shift-y,0),0) scale(1.025);
+  transition:transform .18s cubic-bezier(.22,.7,.25,1);
+}
+.record-card .card-body{
+  transform:translate3d(var(--content-shift-x,0),var(--content-shift-y,0),0);
+  transition:transform .2s cubic-bezier(.22,.7,.25,1);
+}
+.record-card:active{transform:perspective(1000px) translateY(1px) scale(.992) rotateX(var(--tilt-x)) rotateY(var(--tilt-y))}
+
+.record-dialog{
+  position:fixed;
+  z-index:80;
+  inset:0;
+  display:grid;
+  place-items:center;
+  padding:24px;
+  background:rgba(43,52,49,.24);
+  backdrop-filter:blur(8px) saturate(.88);
+  animation:record-dialog-backdrop-in .24s ease both;
+}
+.record-dialog-panel{
+  position:relative;
+  width:min(1040px,calc(100vw - 48px));
+  max-height:calc(100svh - 48px);
+  overflow:auto;
+  overscroll-behavior:contain;
+  border:1px solid rgba(185,199,192,.92);
+  border-radius:var(--radius-xl);
+  background:var(--paper);
+  box-shadow:0 34px 100px rgba(37,47,43,.28);
+  animation:record-dialog-panel-in .3s cubic-bezier(.2,.75,.2,1) both;
+  scrollbar-color:#bcc8c2 transparent;
+}
+.record-dialog-panel:focus{outline:0}
+.record-dialog-close{
+  position:sticky;
+  z-index:12;
+  top:16px;
+  display:grid;
+  place-items:center;
+  width:42px;
+  height:42px;
+  margin:16px 16px -58px auto;
+  border:1px solid rgba(188,201,195,.9);
+  border-radius:50%;
+  background:rgba(251,252,251,.9);
+  color:var(--muted);
+  box-shadow:0 8px 24px rgba(46,52,50,.11);
+  backdrop-filter:blur(10px);
+  font-size:25px;
+  line-height:1;
+}
+.record-dialog-close:hover,.record-dialog-close:focus-visible{
+  border-color:var(--blue);
+  background:#fff;
+  color:var(--ink);
+}
+.record-dialog-close:focus-visible{outline:3px solid rgba(113,135,154,.2);outline-offset:2px}
+.record-dialog .detail-page{
+  max-width:none;
+  min-height:0;
+  margin:0;
+  padding:54px 54px 72px;
+}
+.record-dialog .detail-hero{min-height:430px}
+.record-dialog .portrait.large{min-height:430px}
+.detail-hero .portrait.large .portrait-media{
+  transform:translate3d(var(--profile-pointer-x,0),calc(var(--profile-depth,0px) + var(--profile-pointer-y,0px)),0) scale(1.04);
+  transition:transform .22s cubic-bezier(.22,.7,.25,1);
+}
+@keyframes record-dialog-backdrop-in{from{opacity:0;backdrop-filter:blur(0) saturate(1)}to{opacity:1}}
+@keyframes record-dialog-panel-in{
+  from{opacity:.25;transform:translate3d(var(--dialog-shift-x),var(--dialog-shift-y),0) scale(var(--dialog-start-scale))}
+  to{opacity:1;transform:none}
+}
+
+::view-transition-old(root),::view-transition-new(root){animation-duration:.18s;animation-timing-function:ease}
+::view-transition-group(*){animation-duration:.24s;animation-timing-function:cubic-bezier(.22,.7,.25,1)}
+
+@media(max-width:720px){
+  .record-dialog{align-items:end;padding:0;background:rgba(43,52,49,.3);backdrop-filter:blur(5px) saturate(.9)}
+  .record-dialog-panel{width:100%;max-height:100svh;height:100svh;border-width:1px 0 0;border-radius:24px 24px 0 0}
+  .record-dialog-close{top:12px;width:40px;height:40px;margin:12px 12px -52px auto}
+  .record-dialog .detail-page{margin:0;padding:66px 20px 54px}
+  .record-dialog .detail-hero,.record-dialog .portrait.large{min-height:0}
+  .record-dialog .portrait.large{height:300px}
+  .record-dialog .detail-intro{padding:36px 25px 40px}
+  .record-dialog .detail-intro h1{font-size:35px}
+  .record-dialog .detail-body{padding:58px 0}
+  .record-dialog .community-memory{padding-bottom:20px}
+}
+
+@media(hover:none),(pointer:coarse){
+  .pointer-aura{display:none}
+  .record-card .portrait-media,.record-card .card-body{transform:none}
+}
+@media(prefers-reduced-motion:reduce){
+  .record-dialog,.record-dialog-panel{animation:none}
+  .pointer-aura{display:none}
+}

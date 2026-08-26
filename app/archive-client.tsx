@@ -1,7 +1,9 @@
 "use client";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 
-type View = "home" | "detail" | "submit" | "admin" | "privacy";
+type View = "home" | "submit" | "admin" | "privacy";
+type DialogOrigin = { x: number; y: number; scale: number };
 type GalleryImage = {
   id: number;
   record_id: number;
@@ -241,8 +243,16 @@ function ProgressiveImage({ src, alt, eager = false }: { src: string; alt: strin
   );
 }
 
-function viewFromPath(path: string): View {
-  if (/^\/records\/\d+$/.test(path)) return "detail";
+function recordIdFromLocation(value: string): number | null {
+  const [path, rawQuery = ""] = value.split("?");
+  const queryId = Number(new URLSearchParams(rawQuery).get("record"));
+  if (Number.isInteger(queryId) && queryId > 0) return queryId;
+  const pathId = Number(path.match(/^\/records\/(\d+)$/)?.[1]);
+  return Number.isInteger(pathId) && pathId > 0 ? pathId : null;
+}
+
+function viewFromPath(value: string): View {
+  const path = value.split("?")[0];
   const name = path.slice(1);
   return ["submit", "admin", "privacy"].includes(name)
     ? (name as View)
@@ -258,9 +268,7 @@ export default function Home({
 }) {
   const [view, setView] = useState<View>(() => viewFromPath(initialPath));
   const [people, setPeople] = useState<Person[]>(initialPeople || []);
-  const initialRecordId = Number(
-    initialPath.match(/^\/records\/(\d+)$/)?.[1] || 1,
-  );
+  const initialRecordId = recordIdFromLocation(initialPath) || 1;
   const [selected, setSelected] = useState<Person>(
     () =>
       initialPeople?.find((p) => p.id === initialRecordId) ||
@@ -268,6 +276,14 @@ export default function Home({
       initialPeople?.[0] ||
       originalPeople[0],
   );
+  const [detailOpen, setDetailOpen] = useState(
+    () => recordIdFromLocation(initialPath) !== null,
+  );
+  const [dialogOrigin, setDialogOrigin] = useState<DialogOrigin>({
+    x: 0,
+    y: 0,
+    scale: 0.72,
+  });
   const [recordStatus, setRecordStatus] = useState<
     "loading" | "ready" | "error"
   >(initialPeople ? "ready" : "loading");
@@ -311,46 +327,101 @@ export default function Home({
       .catch(() => setRecordStatus("error"));
   }, [initialPeople]);
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
-  }, [view, selected.id]);
+    if (view !== "home")
+      window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
+  }, [view]);
   useEffect(() => {
-    const applyPath = () => {
+    if (!matchMedia("(hover:hover) and (pointer:fine)").matches) return;
+    let frame = 0;
+    const move = (event: PointerEvent) => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        document.documentElement.style.setProperty("--pointer-x", `${event.clientX}px`);
+        document.documentElement.style.setProperty("--pointer-y", `${event.clientY}px`);
+      });
+    };
+    addEventListener("pointermove", move, { passive: true });
+    return () => {
+      cancelAnimationFrame(frame);
+      removeEventListener("pointermove", move);
+    };
+  }, []);
+  useEffect(() => {
+    const applyLocation = () => {
       const path = location.pathname;
-      const match = path.match(/^\/records\/(\d+)$/);
-      if (match) {
-        const id = Number(match[1]);
+      const id = recordIdFromLocation(`${path}${location.search}`);
+      if (id !== null) {
         const found = people.find((p) => p.id === id);
         if (found) {
           setSelected(found);
-          setView("detail");
-        } else if (recordStatus === "ready") setView("home");
-      } else if (["/submit", "/admin", "/privacy"].includes(path))
+          setDetailOpen(true);
+          setView("home");
+          if (/^\/records\/\d+$/.test(path) && location.hostname === "off-air.github.io")
+            history.replaceState(history.state, "", `/?record=${id}`);
+        } else if (recordStatus === "ready") {
+          setDetailOpen(false);
+          setView("home");
+        }
+      } else if (["/submit", "/admin", "/privacy"].includes(path)) {
+        setDetailOpen(false);
         setView(path.slice(1) as View);
-      else setView("home");
+      } else {
+        setDetailOpen(false);
+        setView("home");
+      }
     };
-    const timer = setTimeout(applyPath, 0);
-    addEventListener("popstate", applyPath);
+    const timer = setTimeout(applyLocation, 0);
+    addEventListener("popstate", applyLocation);
     return () => {
       clearTimeout(timer);
-      removeEventListener("popstate", applyPath);
+      removeEventListener("popstate", applyLocation);
     };
   }, [people, recordStatus]);
+  const closePerson = useCallback(() => {
+    if (history.state?.recordOverlay) history.back();
+    else {
+      history.replaceState(null, "", "/");
+      setDetailOpen(false);
+    }
+  }, []);
   const go = (next: View) => {
     if (view === "admin" && next !== "admin" && adminDirty) {
       if (!window.confirm("저장하지 않은 변경 사항이 있습니다. 저장하지 않고 관리 화면을 나갈까요?")) return;
       setAdminDirty(false);
     }
+    if (next === "home" && detailOpen) {
+      closePerson();
+      return;
+    }
     if (next === "home") {
       setQuery("");
       setSort("recent");
     }
+    setDetailOpen(false);
     setView(next);
     history.pushState(null, "", next === "home" ? "/" : `/${next}`);
   };
-  const openPerson = (p: Person) => {
+  const openPerson = (p: Person, rect: DOMRect) => {
+    const panelWidth = Math.min(1040, window.innerWidth - 48);
+    setDialogOrigin({
+      x: rect.left + rect.width / 2 - window.innerWidth / 2,
+      y: rect.top + rect.height / 2 - window.innerHeight / 2,
+      scale: Math.max(0.24, Math.min(0.72, rect.width / panelWidth)),
+    });
     setSelected(p);
-    setView("detail");
-    history.pushState(null, "", `/records/${p.id}`);
+    setView("home");
+    setDetailOpen(true);
+    history.pushState({ recordOverlay: true }, "", `/?record=${p.id}`);
+  };
+  const transitionLayout = (update: () => void) => {
+    const animatedDocument = document as Document & {
+      startViewTransition?: (callback: () => void) => void;
+    };
+    if (
+      animatedDocument.startViewTransition &&
+      !matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) animatedDocument.startViewTransition(() => flushSync(update));
+    else update();
   };
   const remember = async (id: number) => {
     const isAdding = !remembered.includes(id);
@@ -444,13 +515,15 @@ export default function Home({
   };
   return (
     <main>
-      <Header view={view} go={go} />
+      <div className="pointer-aura" aria-hidden="true" />
       {toast && (
         <div className="toast" role="status">
           {toast}
         </div>
       )}
-      <div className="view-transition" key={view === "detail" ? `${view}-${selected.id}` : view}>
+      <div id="site-shell" className="site-shell" aria-hidden={detailOpen || undefined}>
+      <Header view={view} go={go} />
+      <div className="view-transition" key={view}>
       {view === "home" && (
         <Archive
           list={pagedList}
@@ -459,43 +532,26 @@ export default function Home({
           query={query}
           setQuery={(value) => { setQuery(value); setCurrentPage(1); }}
           sort={sort}
-          setSort={(value) => { setSort(value); setCurrentPage(1); }}
+          setSort={(value) => transitionLayout(() => { setSort(value); setCurrentPage(1); })}
           statusFilters={statusFilters}
-          toggleStatus={(value) => {
+          toggleStatus={(value) => transitionLayout(() => {
             setStatusFilters((current) =>
               current.includes(value)
                 ? current.filter((status) => status !== value)
                 : [...current, value],
             );
             setCurrentPage(1);
-          }}
+          })}
           layout={layout}
-          setLayout={setLayout}
+          setLayout={(value) => transitionLayout(() => setLayout(value))}
           pageSize={pageSize}
-          setPageSize={(value) => { setPageSize(value); setCurrentPage(1); }}
+          setPageSize={(value) => transitionLayout(() => { setPageSize(value); setCurrentPage(1); })}
           currentPage={currentPage}
           pageCount={pageCount}
-          setCurrentPage={setCurrentPage}
+          setCurrentPage={(value) => transitionLayout(() => setCurrentPage(value))}
           open={openPerson}
         />
       )}
-      {view === "detail" &&
-        (recordStatus === "ready" ? (
-          <Detail
-            key={selected.id}
-            person={selected}
-            back={() => go("home")}
-            remembered={remembered.includes(selected.id)}
-            remember={() => remember(selected.id)}
-          />
-        ) : (
-          <div className="page">
-            <div className="empty" role="status">
-              <b>기록을 불러오고 있습니다.</b>
-              <p>잠시만 기다려주세요.</p>
-            </div>
-          </div>
-        ))}
       {view === "submit" && <Submit onSubmit={submitForm} submitting={submitting} />}{" "}
       {view === "admin" && (
         <Admin people={people} setPeople={setPeople} showToast={setToast} trustedAccess={adminDeployment} onDirtyChange={setAdminDirty} />
@@ -503,6 +559,20 @@ export default function Home({
       {view === "privacy" && <Privacy />}
       </div>
       <Footer go={go} adminDeployment={adminDeployment} />
+      </div>
+      {detailOpen && recordStatus === "ready" && (
+        <RecordDialog person={selected} origin={dialogOrigin} close={closePerson}>
+          <Detail
+            key={selected.id}
+            person={selected}
+            back={closePerson}
+            remembered={remembered.includes(selected.id)}
+            remember={() => remember(selected.id)}
+            modal
+            titleId={`record-dialog-title-${selected.id}`}
+          />
+        </RecordDialog>
+      )}
     </main>
   );
 }
@@ -522,7 +592,7 @@ function Header({ view, go }: { view: View; go: (v: View) => void }) {
       </button>
       <nav aria-label="주요 메뉴">
         <button
-          className={view === "home" || view === "detail" ? "active" : ""}
+          className={view === "home" ? "active" : ""}
           onClick={() => go("home")}
         >
           기록
@@ -572,7 +642,7 @@ function Archive({
   currentPage: number;
   pageCount: number;
   setCurrentPage: (v: number) => void;
-  open: (p: Person) => void;
+  open: (p: Person, rect: DOMRect) => void;
 }) {
   return (
     <section className="records" id="records">
@@ -669,7 +739,7 @@ function Archive({
           {list.length ? (
             <div key={layout} className={`card-grid layout-transition ${layout === "list" ? "list-view" : ""}`}>
               {list.map((p) => (
-                <Card key={p.id} p={p} query={query} open={() => open(p)} />
+                <Card key={p.id} p={p} query={query} open={(rect) => open(p, rect)} />
               ))}
             </div>
           ) : (
@@ -717,19 +787,26 @@ function Portrait({ p, large = false }: { p: Person; large?: boolean }) {
     </div>
   );
 }
-function Card({ p, query, open }: { p: Person; query: string; open: () => void }) {
+function Card({ p, query, open }: { p: Person; query: string; open: (rect: DOMRect) => void }) {
   const resetPointer = (element: HTMLElement) => {
     element.style.setProperty("--tilt-x", "0deg");
     element.style.setProperty("--tilt-y", "0deg");
+    element.style.setProperty("--portrait-shift-x", "0px");
+    element.style.setProperty("--portrait-shift-y", "0px");
+    element.style.setProperty("--content-shift-x", "0px");
+    element.style.setProperty("--content-shift-y", "0px");
     element.style.setProperty("--glow-opacity", "0");
   };
   return (
     <article
+      id={`record-card-${p.id}`}
       className="record-card"
-      onClick={open}
+      onClick={(event) => open(event.currentTarget.getBoundingClientRect())}
       tabIndex={0}
-      role="link"
+      role="button"
+      aria-haspopup="dialog"
       aria-label={`${p.name} 기록 보기`}
+      style={{ viewTransitionName: `record-${p.id}` } as React.CSSProperties}
       onPointerMove={(event) => {
         if (event.pointerType !== "mouse") return;
         const card = event.currentTarget;
@@ -738,6 +815,10 @@ function Card({ p, query, open }: { p: Person; query: string; open: () => void }
         const y = Math.min(1, Math.max(0, (event.clientY - rect.top) / rect.height));
         card.style.setProperty("--tilt-x", `${((0.5 - y) * 1.6).toFixed(2)}deg`);
         card.style.setProperty("--tilt-y", `${((x - 0.5) * 1.6).toFixed(2)}deg`);
+        card.style.setProperty("--portrait-shift-x", `${((x - 0.5) * 7).toFixed(2)}px`);
+        card.style.setProperty("--portrait-shift-y", `${((y - 0.5) * 7).toFixed(2)}px`);
+        card.style.setProperty("--content-shift-x", `${((x - 0.5) * 1.8).toFixed(2)}px`);
+        card.style.setProperty("--content-shift-y", `${((y - 0.5) * 1.8).toFixed(2)}px`);
         card.style.setProperty("--glow-x", `${(x * 100).toFixed(1)}%`);
         card.style.setProperty("--glow-y", `${(y * 100).toFixed(1)}%`);
         card.style.setProperty("--glow-opacity", "1");
@@ -747,7 +828,7 @@ function Card({ p, query, open }: { p: Person; query: string; open: () => void }
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          open();
+          open(e.currentTarget.getBoundingClientRect());
         }
       }}
     >
@@ -759,7 +840,7 @@ function Card({ p, query, open }: { p: Person; query: string; open: () => void }
             <p><Highlight text={`${p.affiliation || p.category} · ${p.tags.slice(0, 2).map((tag) => `#${tag}`).join(" ")}`} query={query} /></p>
           </div>
           <span className="record-link">
-            기록 보기 ↗
+            기록 펼치기 ↗
           </span>
         </div>
         <span className="status-badge">{statusText(p)}</span>
@@ -772,16 +853,104 @@ function Card({ p, query, open }: { p: Person; query: string; open: () => void }
     </article>
   );
 }
+function RecordDialog({
+  person,
+  origin,
+  close,
+  children,
+}: {
+  person: Person;
+  origin: DialogOrigin;
+  close: () => void;
+  children: React.ReactNode;
+}) {
+  const panelRef = useRef<HTMLElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const shell = document.getElementById("site-shell") as (HTMLElement & { inert: boolean }) | null;
+    const previousOverflow = document.body.style.overflow;
+    if (shell) shell.inert = true;
+    document.body.style.overflow = "hidden";
+    requestAnimationFrame(() => closeRef.current?.focus());
+    return () => {
+      if (shell) shell.inert = false;
+      document.body.style.overflow = previousOverflow;
+      requestAnimationFrame(() => {
+        document.getElementById(`record-card-${person.id}`)?.focus();
+        if (!document.activeElement || document.activeElement === document.body)
+          previousFocus?.focus();
+      });
+    };
+  }, [person.id]);
+  const onKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
+    const panel = panelRef.current;
+    if (!panel) return;
+    const lightbox = panel.querySelector<HTMLElement>(".lightbox");
+    if (event.key === "Escape") {
+      if (lightbox) return;
+      event.preventDefault();
+      close();
+      return;
+    }
+    if (event.key !== "Tab") return;
+    const scope = lightbox || panel;
+    const focusable = Array.from(
+      scope.querySelectorAll<HTMLElement>(
+        'button:not(:disabled),a[href],input:not(:disabled),select:not(:disabled),textarea:not(:disabled),[tabindex]:not([tabindex="-1"])',
+      ),
+    ).filter((element) => element.offsetParent !== null);
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
+  return (
+    <div
+      className="record-dialog"
+      onClick={(event) => { if (event.target === event.currentTarget) close(); }}
+      style={{
+        "--dialog-shift-x": `${origin.x}px`,
+        "--dialog-shift-y": `${origin.y}px`,
+        "--dialog-start-scale": origin.scale,
+      } as React.CSSProperties}
+    >
+      <section
+        ref={panelRef}
+        className="record-dialog-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={`record-dialog-title-${person.id}`}
+        onKeyDown={onKeyDown}
+      >
+        <button ref={closeRef} className="record-dialog-close" type="button" onClick={close} aria-label={`${person.name} 기록 닫기`}>
+          <span aria-hidden="true">×</span>
+        </button>
+        {children}
+      </section>
+    </div>
+  );
+}
 function Detail({
   person: p,
   back,
   remembered,
   remember,
+  modal = false,
+  titleId,
 }: {
   person: Person;
   back: () => void;
   remembered: boolean;
   remember: () => void;
+  modal?: boolean;
+  titleId?: string;
 }) {
   const [galleryIndex, setGalleryIndex] = useState<number | null>(null);
   const [gallery, setGallery] = useState(p.gallery || []);
@@ -835,15 +1004,32 @@ function Detail({
     return () => { cancelAnimationFrame(frame); removeEventListener("scroll", updateDepth); };
   }, [p.id]);
   return (
-    <div className="page detail-page">
-      <button className="back" onClick={back}>
-        ← 기록 목록으로
-      </button>
-      <section className="detail-hero" ref={detailHeroRef}>
+    <div className={`page detail-page ${modal ? "detail-page-modal" : ""}`}>
+      {!modal && (
+        <button className="back" onClick={back}>
+          ← 기록 목록으로
+        </button>
+      )}
+      <section
+        className="detail-hero"
+        ref={detailHeroRef}
+        onPointerMove={(event) => {
+          if (event.pointerType !== "mouse") return;
+          const rect = event.currentTarget.getBoundingClientRect();
+          const x = (event.clientX - rect.left) / rect.width - 0.5;
+          const y = (event.clientY - rect.top) / rect.height - 0.5;
+          event.currentTarget.style.setProperty("--profile-pointer-x", `${(x * 8).toFixed(2)}px`);
+          event.currentTarget.style.setProperty("--profile-pointer-y", `${(y * 8).toFixed(2)}px`);
+        }}
+        onPointerLeave={(event) => {
+          event.currentTarget.style.setProperty("--profile-pointer-x", "0px");
+          event.currentTarget.style.setProperty("--profile-pointer-y", "0px");
+        }}
+      >
         <Portrait p={p} large />
         <div className="detail-intro">
           <p className="eyebrow">ARCHIVE NO. {String(p.id).padStart(3, "0")}</p>
-          <h1>{p.name}</h1>
+          <h1 id={titleId}>{p.name}</h1>
           <p className="handle">{p.affiliation || p.category} · {p.tags.map((tag) => `#${tag}`).join(" ")}</p>
           <span className="status-badge detail-status">{statusText(p)}</span>
           <p className="lead">{p.note}</p>

@@ -6,6 +6,6 @@ import "../app/admin.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <ArchiveApp initialPath={window.location.pathname} />
+    <ArchiveApp initialPath={`${window.location.pathname}${window.location.search}`} />
   </StrictMode>,
 );
