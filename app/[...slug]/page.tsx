@@ -10,8 +10,8 @@ const pages: Record<string, { title: string; description: string }> = {
     description: "OFF-AIR 아카이브에 새로운 기록이나 수정 정보를 제보합니다.",
   },
   privacy: {
-    title: "데이터 안내",
-    description: "OFF-AIR 아카이브의 데이터 이용과 보관 원칙을 안내합니다.",
+    title: "개인정보·운영 안내",
+    description: "OFF-AIR 아카이브의 정보 이용, 보관과 요청 방법을 안내합니다.",
   },
   admin: {
     title: "관리자 확인",

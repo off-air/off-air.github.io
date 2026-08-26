@@ -1166,45 +1166,47 @@ function PageTitle({
 function Privacy() {
   return (
     <div className="page">
-      <PageTitle no="PRIVACY — DATA" title="조용하고 필요한 만큼만 저장합니다.">
-        사이트 운영에 필요한 최소한의 정보만 사용하며,
-        <br />
-        광고 추적이나 외부 판매에 이용하지 않습니다.
+      <PageTitle no="PRIVACY — OPERATION" title="개인정보·운영 안내">
+        필요한 정보만 저장하며 광고 추적이나 판매에 이용하지 않습니다.
       </PageTitle>
       <section className="privacy-grid">
         <article>
           <b>01</b>
-          <h2>기억 선택</h2>
+          <h2>기억하기</h2>
           <p>
-            무작위 방문자 식별값과 기록 번호를 저장해 중복 집계를 줄입니다. 선택
-            여부는 브라우저에도 보관됩니다.
+            선택한 기록 번호와 무작위 식별값을 저장합니다. 선택 상태는 이 기기에,
+            중복 집계 방지용 값은 서버에 보관됩니다.
           </p>
         </article>
         <article>
           <b>02</b>
-          <h2>제보 내용</h2>
+          <h2>제보와 이미지</h2>
           <p>
-            활동명, 공개 채널 주소, 제보 내용과 출처, 선택적으로 첨부한 이미지와
-            이미지에 담긴 기억을 검토 목적으로 저장합니다. 개인 연락처는 요청하지 않습니다.
+            활동명, 공개 주소, 제보·출처와 선택한 이미지 설명을 검토 목적으로
+            저장합니다. 개인 연락처나 비공개 정보는 보내지 말아주세요.
           </p>
         </article>
         <article>
           <b>03</b>
-          <h2>요청 제한</h2>
+          <h2>보관과 보호</h2>
           <p>
-            도배를 막기 위해 네트워크 주소를 복원할 수 없는 해시로 변환해 제한된
-            기간 동안 사용합니다.
+            기능 데이터는 Cloudflare D1·R2에 보관되며 관리자만 확인합니다. 요청
+            제한용 네트워크 주소는 복원하기 어려운 값으로 바꿔 제한된 기간만 사용합니다.
           </p>
         </article>
         <article>
           <b>04</b>
-          <h2>수정과 삭제</h2>
+          <h2>수정·비공개 요청</h2>
           <p>
-            당사자 또는 관계자의 요청이 확인되면 기록과 관련 제보를 수정하거나
-            비공개로 전환합니다.
+            제보 페이지에서 ‘정보 수정’ 또는 ‘비공개 요청’을 선택해 보내주세요.
+            당사자나 관계자의 요청을 확인한 뒤 필요한 조치를 진행합니다.
           </p>
         </article>
       </section>
+      <p className="privacy-note">
+        제보와 이미지는 검토와 기록 운영에 필요한 동안 보관하고, 목적이 끝나거나 삭제 요청이 확인되면 정리합니다.
+        <span>시행일 2026. 08. 27.</span>
+      </p>
     </div>
   );
 }
@@ -2048,7 +2050,7 @@ function Footer({ go, adminDeployment }: { go: (v: View) => void; adminDeploymen
       <button onClick={() => go("home")}>OFF–AIR</button>
       <div>
         <button onClick={() => go("submit")}>기록 제보</button>
-        <button onClick={() => go("privacy")}>데이터 안내</button>
+        <button onClick={() => go("privacy")}>개인정보·운영 안내</button>
         {adminDeployment && <button onClick={() => go("admin")}>관리</button>}
         <small>© 2026 OFF–AIR ARCHIVE</small>
       </div>
