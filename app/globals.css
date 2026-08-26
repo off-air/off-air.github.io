@@ -635,6 +635,7 @@ body{
 .status-line,.admin-grid aside>button.active{background:var(--surface)}
 .record-dialog-panel{background:var(--paper);border-color:#c8cec9}
 .record-dialog-close{background:rgba(255,254,250,.93)}
+.portrait.has-image:before,.portrait.has-image:after{display:none}
 
 /* Final accessibility polish */
 .search input::placeholder{color:#6c7772;opacity:1}

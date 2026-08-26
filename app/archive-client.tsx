@@ -778,7 +778,7 @@ function Archive({
 function Portrait({ p, large = false }: { p: Person; large?: boolean }) {
   return (
     <div
-      className={`portrait ${large ? "large" : ""}`}
+      className={`portrait ${large ? "large" : ""} ${p.avatar_key ? "has-image" : ""}`}
       style={{ "--portrait": p.color } as React.CSSProperties}
     >
       <div className="portrait-media">
@@ -788,7 +788,6 @@ function Portrait({ p, large = false }: { p: Person; large?: boolean }) {
           <span>{p.initial}</span>
         )}
       </div>
-      <small>{p.avatar_key ? "archive portrait" : "archive portrait · sample"}</small>
     </div>
   );
 }
