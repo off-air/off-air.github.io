@@ -187,17 +187,36 @@ const originalPeople: Person[] = [
   },
 ];
 
-const daysAgo = (date: string) =>
-  Math.max(
-    0,
-    Math.floor(
-      (Date.now() -
-        new Date(date.replaceAll(". ", "-").replace(".", "")).getTime()) /
-        86400000,
-    ),
-  );
+const parseArchiveDate = (value: string) => {
+  const date = value.trim();
+  const compact = date.match(/^([0-9]{4})([0-9]{2})([0-9]{2})$/);
+  const separated = date.match(/^([0-9]{4})\D+([0-9]{1,2})\D+([0-9]{1,2})\D*$/);
+  const parts = compact || separated;
+  if (!parts) return null;
+  const year = Number(parts[1]);
+  const month = Number(parts[2]);
+  const day = Number(parts[3]);
+  const parsed = new Date(year, month - 1, day);
+  if (
+    parsed.getFullYear() !== year ||
+    parsed.getMonth() !== month - 1 ||
+    parsed.getDate() !== day
+  ) return null;
+  return parsed;
+};
+const daysAgo = (date: string) => {
+  const parsed = parseArchiveDate(date);
+  if (!parsed) return null;
+  return Math.max(0, Math.floor((Date.now() - parsed.getTime()) / 86400000));
+};
+const formattedArchiveDate = (date: string) => {
+  const parsed = parseArchiveDate(date);
+  if (!parsed) return date || "확인 필요";
+  return `${parsed.getFullYear()}. ${String(parsed.getMonth() + 1).padStart(2, "0")}. ${String(parsed.getDate()).padStart(2, "0")}`;
+};
 const yearsText = (date: string) => {
   const days = daysAgo(date);
+  if (days === null) return "날짜 확인 필요";
   const y = Math.floor(days / 365);
   const m = Math.floor((days % 365) / 30);
   return y ? `${y}년 ${m ? `${m}개월` : ""}`.trim() : `${m}개월`;
@@ -475,10 +494,11 @@ export default function Home({
         )
         .sort((a, b) =>
           sort === "oldest"
-            ? daysAgo(b.last) - daysAgo(a.last)
+            ? (daysAgo(b.last) ?? -1) - (daysAgo(a.last) ?? -1)
             : sort === "name"
               ? a.name.localeCompare(b.name, "ko")
-              : daysAgo(a.last) - daysAgo(b.last),
+              : (daysAgo(a.last) ?? Number.MAX_SAFE_INTEGER) -
+                (daysAgo(b.last) ?? Number.MAX_SAFE_INTEGER),
         ),
     [people, query, sort, statusFilters],
   );
@@ -851,7 +871,7 @@ function Card({ p, query, open }: { p: Person; query: string; open: (rect: DOMRe
         <p className="note"><Highlight text={p.note} query={query} /></p>
         <div className="last-seen">
           <span>마지막 활동으로부터</span>
-          <strong>{daysAgo(p.last).toLocaleString("ko-KR")}일</strong>
+          <strong>{daysAgo(p.last)?.toLocaleString("ko-KR") ?? "확인 필요"}{daysAgo(p.last) === null ? "" : "일"}</strong>
         </div>
       </div>
     </article>
@@ -1059,7 +1079,7 @@ function Detail({
         </div>
         <div className="time-block right">
           <span>마지막 확인</span>
-          <strong>{p.last}</strong>
+          <strong>{formattedArchiveDate(p.last)}</strong>
         </div>
       </section>
       <section className="detail-body">
@@ -1130,7 +1150,9 @@ function Detail({
         <p>마지막 소식으로부터</p>
         <strong>{yearsText(p.last)}</strong>
         <span>
-          정확히 {daysAgo(p.last).toLocaleString("ko-KR")}일이 흘렀습니다.
+          {daysAgo(p.last) === null
+            ? "마지막 확인 일자를 확인하고 있습니다."
+            : `정확히 ${daysAgo(p.last)?.toLocaleString("ko-KR")}일이 흘렀습니다.`}
         </span>
       </section>
       <section className="community-memory">
