@@ -209,6 +209,11 @@ const activityStatuses = [
   "소식이 끊긴 버튜버",
   "무기한 휴식기에 들어간 버튜버",
 ] as const;
+const statusToneClass = (status: string) => {
+  if (status === "공식적으로 활동 종료한 버튜버") return "status-official";
+  if (status === "무기한 휴식기에 들어간 버튜버") return "status-hiatus";
+  return "status-silent";
+};
 
 async function resizeForUpload(file: File, maxWidth: number, quality: number) {
   const bitmap = await createImageBitmap(file);
@@ -727,7 +732,7 @@ function Archive({
               <button
                 key={activityStatus}
                 type="button"
-                className={statusFilters.includes(activityStatus) ? "active" : ""}
+                className={`${statusToneClass(activityStatus)} ${statusFilters.includes(activityStatus) ? "active" : ""}`}
                 aria-pressed={statusFilters.includes(activityStatus)}
                 onClick={() => toggleStatus(activityStatus)}
               >
@@ -843,7 +848,7 @@ function Card({ p, query, open }: { p: Person; query: string; open: (rect: DOMRe
             기록 펼치기 ↗
           </span>
         </div>
-        <span className="status-badge">{statusText(p)}</span>
+        <span className={`status-badge ${statusToneClass(statusText(p))}`}>{statusText(p)}</span>
         <p className="note"><Highlight text={p.note} query={query} /></p>
         <div className="last-seen">
           <span>마지막 활동으로부터</span>
@@ -1031,7 +1036,7 @@ function Detail({
           <p className="eyebrow">ARCHIVE NO. {String(p.id).padStart(3, "0")}</p>
           <h1 id={titleId}>{p.name}</h1>
           <p className="handle">{p.affiliation || p.category} · {p.tags.map((tag) => `#${tag}`).join(" ")}</p>
-          <span className="status-badge detail-status">{statusText(p)}</span>
+          <span className={`status-badge detail-status ${statusToneClass(statusText(p))}`}>{statusText(p)}</span>
           <p className="lead">{p.note}</p>
           <button
             className={`remember ${remembered ? "saved" : ""}`}
