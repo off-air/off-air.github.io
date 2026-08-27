@@ -643,3 +643,50 @@ body{
   .view-switch button,.status-filters button{min-height:40px}
   .status-filters button{display:flex;align-items:center}
 }
+
+/* Record identity and related links */
+.record-meta{
+  display:grid;
+  gap:20px;
+  margin-top:30px;
+  padding-top:24px;
+  border-top:1px solid var(--line);
+}
+.record-meta>div>span,.related-links-editor-head span{
+  display:block;
+  margin-bottom:9px;
+  color:var(--muted);
+  font-size:10px;
+  letter-spacing:.04em;
+}
+.record-meta strong{font:500 15px/1.6 var(--font-geist-sans),'Malgun Gothic',sans-serif}
+.related-links{display:flex;flex-wrap:wrap;gap:9px;font-size:12px}
+.related-links a{
+  display:inline-flex;
+  align-items:center;
+  gap:12px;
+  min-height:40px;
+  padding:0 15px;
+  border:1px solid var(--line);
+  border-radius:999px;
+  background:var(--card);
+  color:var(--blue);
+  transition:transform .18s,border-color .18s,background .18s;
+}
+.related-links a:hover,.related-links a:focus-visible{transform:translateY(-1px);border-color:#aebdc5;background:var(--blue-soft);outline:0}
+.related-links a:active{transform:translateY(0) scale(.98)}
+.related-links i{font-style:normal;font-size:11px}
+.related-links-editor{display:grid;gap:14px;padding:18px;border:1px solid var(--line);border-radius:var(--radius-md);background:rgba(245,243,238,.58)}
+.related-links-editor-head{display:flex;align-items:center;justify-content:space-between;gap:20px}
+.related-links-editor-head span{margin-bottom:5px}
+.related-links-editor-head small{color:var(--muted);font-size:10px}
+.related-links-editor-head .secondary{min-height:38px;white-space:nowrap}
+.related-link-row{display:grid;grid-template-columns:minmax(120px,.55fr) minmax(220px,1.45fr) auto;gap:10px;align-items:end}
+.related-link-remove{min-height:43px;padding:0 14px}
+@media(max-width:720px){
+  .record-meta{margin-top:25px}
+  .related-links a{min-height:42px}
+  .related-links-editor-head{align-items:flex-start;flex-direction:column}
+  .related-link-row{grid-template-columns:1fr}
+  .related-link-remove{width:100%}
+}

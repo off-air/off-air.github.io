@@ -13,6 +13,10 @@ type GalleryImage = {
   memory_date?: string;
   source_url?: string;
 };
+type RelatedLink = {
+  label: string;
+  url: string;
+};
 export type Person = {
   id: number;
   name: string;
@@ -29,6 +33,8 @@ export type Person = {
   note: string;
   bio: string;
   graduation_message?: string;
+  fan_name?: string;
+  related_links?: RelatedLink[];
   tags: string[];
   memories: number;
   published?: boolean | number;
@@ -213,6 +219,11 @@ const formattedArchiveDate = (date: string) => {
   const parsed = parseArchiveDate(date);
   if (!parsed) return date || "확인 필요";
   return `${parsed.getFullYear()}. ${String(parsed.getMonth() + 1).padStart(2, "0")}. ${String(parsed.getDate()).padStart(2, "0")}`;
+};
+const archiveDateInputValue = (date: string) => {
+  const parsed = parseArchiveDate(date);
+  if (!parsed) return "";
+  return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, "0")}-${String(parsed.getDate()).padStart(2, "0")}`;
 };
 const yearsText = (date: string) => {
   const days = daysAgo(date);
@@ -1072,7 +1083,7 @@ function Detail({
       <section className="timeline">
         <div className="time-block">
           <span>활동 시작</span>
-          <strong>{p.debut}</strong>
+          <strong>{formattedArchiveDate(p.debut)}</strong>
         </div>
         <div className="time-line">
           <i />
@@ -1095,6 +1106,28 @@ function Detail({
               <span key={t}>#{t}</span>
             ))}
           </div>
+          {(p.fan_name?.trim() || (p.related_links?.length || 0) > 0) && (
+            <div className="record-meta">
+              {p.fan_name?.trim() && (
+                <div>
+                  <span>팬네임</span>
+                  <strong>{p.fan_name}</strong>
+                </div>
+              )}
+              {(p.related_links?.length || 0) > 0 && (
+                <div>
+                  <span>관련 링크</span>
+                  <nav className="related-links" aria-label={`${p.name} 관련 링크`}>
+                    {p.related_links?.map((link, index) => (
+                      <a key={`${link.url}-${index}`} href={link.url} target="_blank" rel="noopener noreferrer">
+                        {link.label}<i aria-hidden="true">↗</i>
+                      </a>
+                    ))}
+                  </nav>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </section>
       {p.graduation_message?.trim() && (
@@ -1408,6 +1441,18 @@ function Admin({
       ),
     );
   };
+  const addRelatedLink = () => {
+    if ((p.related_links?.length || 0) >= 12) return;
+    update("related_links", [...(p.related_links || []), { label: "", url: "" }]);
+  };
+  const updateRelatedLink = (index: number, key: keyof RelatedLink, value: string) => {
+    update("related_links", (p.related_links || []).map((link, itemIndex) =>
+      itemIndex === index ? { ...link, [key]: value } : link,
+    ));
+  };
+  const removeRelatedLink = (index: number) => {
+    update("related_links", (p.related_links || []).filter((_, itemIndex) => itemIndex !== index));
+  };
   const authenticate = useCallback(async () => {
     try {
       const headers = { authorization: `Bearer ${token}` };
@@ -1460,12 +1505,15 @@ function Admin({
         },
         body: JSON.stringify(p),
       });
-      if (!response.ok) throw new Error();
+      const result = await readResponseJson<{ ok?: boolean; error?: string }>(response);
+      if (!response.ok) {
+        if (response.status === 401) setAuthenticated(false);
+        throw new Error(result.error || "저장하지 못했습니다.");
+      }
       setDirty(false);
       showToast("변경 사항을 서버에 저장했습니다.");
-    } catch {
-      showToast("저장하지 못했습니다. 다시 인증해주세요.");
-      setAuthenticated(false);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "저장하지 못했습니다.");
     }
     setTimeout(() => showToast(""), 2400);
   };
@@ -1766,18 +1814,29 @@ function Admin({
               <label>
                 <span>활동 시작</span>
                 <input
-                  value={p.debut}
+                  type="date"
+                  value={archiveDateInputValue(p.debut)}
                   onChange={(e) => update("debut", e.target.value)}
                 />
               </label>
               <label>
                 <span>마지막 확인</span>
                 <input
-                  value={p.last}
+                  type="date"
+                  value={archiveDateInputValue(p.last)}
                   onChange={(e) => update("last", e.target.value)}
                 />
               </label>
             </div>
+            <label>
+              <span>팬네임 · 선택 입력</span>
+              <input
+                maxLength={100}
+                value={p.fan_name || ""}
+                onChange={(e) => update("fan_name", e.target.value)}
+                placeholder="팬을 부르는 이름"
+              />
+            </label>
             <label>
               <span>목록 소개</span>
               <textarea
@@ -1848,6 +1907,43 @@ function Admin({
                 />
               </label>
             )}
+            <div className="related-links-editor">
+              <div className="related-links-editor-head">
+                <div>
+                  <span>관련 링크 · 선택 입력</span>
+                  <small>공개 기록에는 주소 대신 버튼 이름만 표시됩니다.</small>
+                </div>
+                <button type="button" className="secondary" onClick={addRelatedLink} disabled={(p.related_links?.length || 0) >= 12}>
+                  + 링크 추가
+                </button>
+              </div>
+              {(p.related_links || []).map((link, index) => (
+                <div className="related-link-row" key={index}>
+                  <label>
+                    <span>버튼 이름</span>
+                    <input
+                      maxLength={40}
+                      value={link.label}
+                      onChange={(e) => updateRelatedLink(index, "label", e.target.value)}
+                      placeholder="예: YouTube"
+                    />
+                  </label>
+                  <label>
+                    <span>연결 주소</span>
+                    <input
+                      type="url"
+                      maxLength={2048}
+                      value={link.url}
+                      onChange={(e) => updateRelatedLink(index, "url", e.target.value)}
+                      placeholder="https://…"
+                    />
+                  </label>
+                  <button type="button" className="danger related-link-remove" onClick={() => removeRelatedLink(index)} aria-label={`${index + 1}번 관련 링크 삭제`}>
+                    삭제
+                  </button>
+                </div>
+              ))}
+            </div>
             <label className="profile-upload">
               <span>프로필 사진 · JPG, PNG, WEBP, GIF / 최대 5MB</span>
               <div>

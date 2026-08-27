@@ -1,0 +1,2 @@
+ALTER TABLE records ADD COLUMN fan_name TEXT NOT NULL DEFAULT '';
+ALTER TABLE records ADD COLUMN related_links TEXT NOT NULL DEFAULT '[]';
