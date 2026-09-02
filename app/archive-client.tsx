@@ -1227,7 +1227,7 @@ function Detail({
 }
 
 type TurnstileApi = {
-  render: (element: HTMLElement, options: { sitekey: string; theme: "light"; callback: (token: string) => void; "expired-callback": () => void; "error-callback": () => void }) => string;
+  render: (element: HTMLElement, options: { sitekey: string; theme: "light"; callback: (token: string) => void; "expired-callback": () => void; "error-callback": (errorCode: string) => void }) => string;
   reset: (widgetId: string) => void;
   remove: (widgetId: string) => void;
 };
@@ -1300,7 +1300,10 @@ function RecordComments({ recordId, recordName }: { recordId: number; recordName
       theme: "light",
       callback: setTurnstileToken,
       "expired-callback": () => setTurnstileToken(""),
-      "error-callback": () => { setTurnstileToken(""); setNotice("사람 확인을 불러오지 못했습니다."); },
+      "error-callback": (errorCode) => {
+        setTurnstileToken("");
+        setNotice(`사람 확인을 불러오지 못했습니다. (오류 ${errorCode})`);
+      },
     });
     return () => {
       if (widgetIdRef.current && api()) api()?.remove(widgetIdRef.current);
