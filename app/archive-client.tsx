@@ -68,6 +68,30 @@ type DeletedImage = {
   object_key: string;
   deleted_at: string;
 };
+type RecordComment = {
+  id: number;
+  record_id: number;
+  nickname: string;
+  body: string;
+  created_at: string;
+  status?: "pending" | "approved" | "rejected";
+};
+type AdminComment = RecordComment & {
+  record_name: string;
+  status: "pending" | "approved" | "rejected";
+  moderation_source: string;
+  moderation_flags: string;
+  updated_at: string;
+  reviewed_at?: string | null;
+};
+type CommentEvent = {
+  id: number;
+  comment_id: number;
+  record_id?: number | null;
+  action: "author_deleted" | "admin_deleted";
+  reason: string;
+  created_at: string;
+};
 
 async function readResponseJson<T>(response: Response): Promise<T> {
   return await response.json() as T;
@@ -1197,7 +1221,185 @@ function Detail({
           누군가 기억하고 있다는 작은 표시입니다.
         </p>
       </section>
+      <RecordComments recordId={p.id} recordName={p.name} />
     </div>
+  );
+}
+
+type TurnstileApi = {
+  render: (element: HTMLElement, options: { sitekey: string; theme: "light"; callback: (token: string) => void; "expired-callback": () => void; "error-callback": () => void }) => string;
+  reset: (widgetId: string) => void;
+  remove: (widgetId: string) => void;
+};
+const commentDeleteStorageKey = "off-air-comment-delete-tokens";
+
+function loadCommentDeleteTokens() {
+  if (typeof window === "undefined") return {} as Record<string, string>;
+  try { return JSON.parse(localStorage.getItem(commentDeleteStorageKey) || "{}") as Record<string, string>; }
+  catch { return {}; }
+}
+
+function RecordComments({ recordId, recordName }: { recordId: number; recordName: string }) {
+  const [comments, setComments] = useState<RecordComment[]>([]);
+  const [nickname, setNickname] = useState("");
+  const [body, setBody] = useState("");
+  const [notice, setNotice] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [siteKey, setSiteKey] = useState("");
+  const [commentsEnabled, setCommentsEnabled] = useState(false);
+  const [turnstileReady, setTurnstileReady] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [deleteTokens, setDeleteTokens] = useState<Record<string, string>>(loadCommentDeleteTokens);
+  const widgetHostRef = useRef<HTMLDivElement>(null);
+  const widgetIdRef = useRef<string | null>(null);
+  const api = () => (window as Window & { turnstile?: TurnstileApi }).turnstile;
+
+  useEffect(() => {
+    Promise.all([
+      fetch(publicApiUrl(`/api/comments?recordId=${recordId}`)).then((response) => response.ok ? readResponseJson<RecordComment[]>(response) : []),
+      fetch(publicApiUrl("/api/runtime")).then((response): Promise<{ commentsEnabled?: boolean; turnstileSiteKey?: string }> => response.ok
+        ? readResponseJson<{ commentsEnabled?: boolean; turnstileSiteKey?: string }>(response)
+        : Promise.resolve({})),
+    ]).then(([receivedComments, runtime]) => {
+      setComments(receivedComments);
+      setCommentsEnabled(Boolean(runtime.commentsEnabled));
+      setSiteKey(runtime.turnstileSiteKey || "");
+    }).catch(() => setNotice("댓글을 불러오지 못했습니다."));
+  }, [recordId]);
+
+  useEffect(() => {
+    if (!siteKey) return;
+    if (api()) {
+      const timer = window.setTimeout(() => setTurnstileReady(true), 0);
+      return () => window.clearTimeout(timer);
+    }
+    const existing = document.querySelector<HTMLScriptElement>('script[data-off-air-turnstile="true"]');
+    const onLoad = () => setTurnstileReady(true);
+    const onError = () => setNotice("사람 확인을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.");
+    if (existing) {
+      existing.addEventListener("load", onLoad, { once: true });
+      existing.addEventListener("error", onError, { once: true });
+      return () => { existing.removeEventListener("load", onLoad); existing.removeEventListener("error", onError); };
+    }
+    const script = document.createElement("script");
+    script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+    script.async = true;
+    script.defer = true;
+    script.dataset.offAirTurnstile = "true";
+    script.addEventListener("load", onLoad, { once: true });
+    script.addEventListener("error", onError, { once: true });
+    document.head.appendChild(script);
+    return () => { script.removeEventListener("load", onLoad); script.removeEventListener("error", onError); };
+  }, [siteKey]);
+
+  useEffect(() => {
+    const turnstile = api();
+    if (!turnstileReady || !siteKey || !widgetHostRef.current || widgetIdRef.current || !turnstile) return;
+    widgetIdRef.current = turnstile.render(widgetHostRef.current, {
+      sitekey: siteKey,
+      theme: "light",
+      callback: setTurnstileToken,
+      "expired-callback": () => setTurnstileToken(""),
+      "error-callback": () => { setTurnstileToken(""); setNotice("사람 확인을 불러오지 못했습니다."); },
+    });
+    return () => {
+      if (widgetIdRef.current && api()) api()?.remove(widgetIdRef.current);
+      widgetIdRef.current = null;
+    };
+  }, [siteKey, turnstileReady]);
+
+  const resetTurnstile = () => {
+    setTurnstileToken("");
+    if (widgetIdRef.current) api()?.reset(widgetIdRef.current);
+  };
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (submitting) return;
+    if (!turnstileToken) { setNotice("사람 확인을 완료해주세요."); return; }
+    setSubmitting(true);
+    const form = event.currentTarget;
+    const website = new FormData(form).get("website")?.toString() || "";
+    try {
+      const response = await fetch(publicApiUrl("/api/comments"), {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ recordId, nickname, body, website, turnstileToken }),
+      });
+      const result = await readResponseJson<{ comment?: RecordComment; deleteToken?: string; error?: string }>(response);
+      if (!response.ok || !result.comment || !result.deleteToken) throw new Error(result.error || "댓글을 등록하지 못했습니다.");
+      const nextTokens = { ...deleteTokens, [String(result.comment.id)]: result.deleteToken };
+      setDeleteTokens(nextTokens);
+      localStorage.setItem(commentDeleteStorageKey, JSON.stringify(nextTokens));
+      if (result.comment.status === "approved") {
+        setComments((current) => [result.comment as RecordComment, ...current]);
+        setNotice("기억을 남겼습니다. 이 기기에서는 직접 삭제할 수 있습니다.");
+      } else setNotice("댓글이 접수되었습니다. 관리자가 확인한 뒤 공개됩니다.");
+      setNickname("");
+      setBody("");
+      form.reset();
+      resetTurnstile();
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "댓글을 등록하지 못했습니다.");
+      resetTurnstile();
+    }
+    setSubmitting(false);
+  };
+  const remove = async (comment: RecordComment) => {
+    const deleteToken = deleteTokens[String(comment.id)];
+    if (!deleteToken || !window.confirm("직접 남긴 댓글을 삭제할까요? 삭제한 내용은 복구할 수 없습니다.")) return;
+    try {
+      const response = await fetch(publicApiUrl("/api/comments"), {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ commentId: comment.id, deleteToken }),
+      });
+      const result = await readResponseJson<{ error?: string }>(response);
+      if (!response.ok) throw new Error(result.error || "댓글을 삭제하지 못했습니다.");
+      setComments((current) => current.filter((item) => item.id !== comment.id));
+      const nextTokens = { ...deleteTokens };
+      delete nextTokens[String(comment.id)];
+      setDeleteTokens(nextTokens);
+      localStorage.setItem(commentDeleteStorageKey, JSON.stringify(nextTokens));
+      setNotice("댓글을 삭제했습니다.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "댓글을 삭제하지 못했습니다.");
+    }
+  };
+
+  return (
+    <section className="record-comments" aria-labelledby={`record-comments-${recordId}`}>
+      <div className="comment-heading">
+        <div><p className="section-no">MEMORIES — MESSAGE</p><h2 id={`record-comments-${recordId}`}>남겨진 기억</h2></div>
+        <span>{comments.length}개의 이야기</span>
+      </div>
+      <p className="comment-guidance">{recordName}의 활동을 기억하는 짧은 이야기를 남겨주세요. 비방과 개인정보는 공개되지 않습니다.</p>
+      {commentsEnabled ? (
+        <form className="comment-form" onSubmit={submit}>
+          <label className="hp-field" aria-hidden="true">웹사이트<input name="website" tabIndex={-1} autoComplete="off" /></label>
+          <div className="comment-form-top">
+            <label><span>이름</span><input value={nickname} onChange={(event) => setNickname(event.target.value)} maxLength={20} required placeholder="표시할 이름" /></label>
+            <span>{body.length} / 300</span>
+          </div>
+          <label><span>기억</span><textarea value={body} onChange={(event) => setBody(event.target.value)} minLength={2} maxLength={300} required rows={4} placeholder="함께 기억하고 싶은 순간을 적어주세요." /></label>
+          <div className="comment-submit-row">
+            <div ref={widgetHostRef} className="turnstile-host" />
+            <button className="primary" type="submit" disabled={submitting || !turnstileToken}>{submitting ? "등록 중…" : "기억 남기기"}</button>
+          </div>
+        </form>
+      ) : <div className="comment-unavailable">댓글 등록 기능을 준비하고 있습니다. 공개된 기억은 계속 볼 수 있습니다.</div>}
+      {notice && <p className="comment-notice" role="status">{notice}</p>}
+      {comments.length ? (
+        <div className="comment-list">
+          {comments.map((comment) => (
+            <article key={comment.id}>
+              <header><strong>{comment.nickname}</strong><time>{new Date(comment.created_at).toLocaleDateString("ko-KR")}</time></header>
+              <p>{comment.body}</p>
+              {deleteTokens[String(comment.id)] && <button type="button" onClick={() => remove(comment)}>내 댓글 삭제</button>}
+            </article>
+          ))}
+        </div>
+      ) : <div className="comment-empty">아직 남겨진 이야기가 없습니다. 첫 번째 기억을 건네주세요.</div>}
+    </section>
   );
 }
 function PageTitle({
@@ -1254,6 +1456,14 @@ function Privacy() {
           <p>
             제보 페이지에서 ‘정보 수정’ 또는 ‘비공개 요청’을 선택해 보내주세요.
             당사자나 관계자의 요청을 확인한 뒤 필요한 조치를 진행합니다.
+          </p>
+        </article>
+        <article>
+          <b>05</b>
+          <h2>댓글과 자동 검토</h2>
+          <p>
+            댓글은 비방과 유해 표현을 막기 위해 자동 검토될 수 있습니다. 등록자 삭제 키는 이 기기에만 보관하며,
+            검토 과정의 데이터는 서비스 제공자의 악용 방지 정책에 따라 제한된 기간 보관될 수 있습니다.
           </p>
         </article>
       </section>
@@ -1431,6 +1641,8 @@ function Admin({
   const [dirty, setDirty] = useState(false);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [deletedImages, setDeletedImages] = useState<DeletedImage[]>([]);
+  const [comments, setComments] = useState<AdminComment[]>([]);
+  const [commentEvents, setCommentEvents] = useState<CommentEvent[]>([]);
   const p =
     people.find((x) => x.id === active) || people[0] || originalPeople[0];
   const update = (key: keyof Person, val: Person[keyof Person], markDirty = true) => {
@@ -1456,19 +1668,23 @@ function Admin({
   const authenticate = useCallback(async () => {
     try {
       const headers = { authorization: `Bearer ${token}` };
-      const [recordsResponse, submissionsResponse, deletedImagesResponse] = await Promise.all([
+      const [recordsResponse, submissionsResponse, deletedImagesResponse, commentsResponse] = await Promise.all([
         fetch("/api/admin/records", { headers }),
         fetch("/api/admin/submissions", { headers }),
         fetch("/api/admin/deleted-images", { headers }),
+        fetch("/api/admin/comments", { headers }),
       ]);
-      if (!recordsResponse.ok || !submissionsResponse.ok || !deletedImagesResponse.ok) throw new Error();
+      if (!recordsResponse.ok || !submissionsResponse.ok || !deletedImagesResponse.ok || !commentsResponse.ok) throw new Error();
       const records = await readResponseJson<Person[]>(recordsResponse);
       const received = await readResponseJson<Submission[]>(submissionsResponse);
       const retainedImages = await readResponseJson<DeletedImage[]>(deletedImagesResponse);
+      const commentData = await readResponseJson<{ comments: AdminComment[]; events: CommentEvent[] }>(commentsResponse);
       setPeople(records);
       setActive((current) => records.some((record) => record.id === current) ? current : records[0]?.id || 0);
       setSubmissions(received);
       setDeletedImages(retainedImages);
+      setComments(commentData.comments);
+      setCommentEvents(commentData.events);
       setAuthenticated(true);
       setDirty(false);
       showToast("관리자 인증이 완료되었습니다.");
@@ -1683,6 +1899,44 @@ function Admin({
       showToast("제보 상태를 변경했습니다.");
     } catch {
       showToast("제보 상태를 변경하지 못했습니다.");
+    }
+    setTimeout(() => showToast(""), 2200);
+  };
+  const updateComment = async (id: number, status: AdminComment["status"]) => {
+    try {
+      const response = await fetch("/api/admin/comments", {
+        method: "PATCH",
+        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+        body: JSON.stringify({ id, status }),
+      });
+      const result = await readResponseJson<{ error?: string }>(response);
+      if (!response.ok) throw new Error(result.error || "댓글 상태를 변경하지 못했습니다.");
+      setComments((current) => current.map((comment) => comment.id === id ? { ...comment, status, moderation_source: "manual" } : comment));
+      showToast(status === "approved" ? "댓글을 공개했습니다." : status === "rejected" ? "댓글을 비공개 처리했습니다." : "댓글을 검토 대기로 옮겼습니다.");
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "댓글 상태를 변경하지 못했습니다.");
+    }
+    setTimeout(() => showToast(""), 2200);
+  };
+  const deleteComment = async (id: number) => {
+    if (!window.confirm("이 댓글을 영구 삭제할까요? 본문과 이름은 복구할 수 없습니다.")) return;
+    try {
+      const response = await fetch("/api/admin/comments", {
+        method: "DELETE",
+        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+        body: JSON.stringify({ id }),
+      });
+      const result = await readResponseJson<{ error?: string }>(response);
+      if (!response.ok) throw new Error(result.error || "댓글을 삭제하지 못했습니다.");
+      const deleted = comments.find((comment) => comment.id === id);
+      setComments((current) => current.filter((comment) => comment.id !== id));
+      const event: CommentEvent = {
+        id: Date.now(), comment_id: id, record_id: deleted?.record_id, action: "admin_deleted", reason: "관리자 삭제", created_at: new Date().toISOString(),
+      };
+      setCommentEvents((current) => [event, ...current].slice(0, 100));
+      showToast("댓글을 영구 삭제했습니다.");
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "댓글을 삭제하지 못했습니다.");
     }
     setTimeout(() => showToast(""), 2200);
   };
@@ -1972,6 +2226,7 @@ function Admin({
         </section>
       </div>
       <SubmissionQueue items={submissions} update={updateSubmission} people={people} publishImage={publishSubmissionImage} deletedImages={deletedImages} purgeDeletedImages={purgeDeletedImages} />
+      <CommentQueue comments={comments} events={commentEvents} update={updateComment} remove={deleteComment} />
     </div>
   );
 }
@@ -2158,6 +2413,72 @@ function SubmissionQueue({
           {box === "completed" && <p>확인 완료한 제보가 이곳에 모입니다.</p>}
         </div>
       )}
+    </section>
+  );
+}
+
+function CommentQueue({
+  comments,
+  events,
+  update,
+  remove,
+}: {
+  comments: AdminComment[];
+  events: CommentEvent[];
+  update: (id: number, status: AdminComment["status"]) => void;
+  remove: (id: number) => void;
+}) {
+  const [status, setStatus] = useState<AdminComment["status"]>("pending");
+  const [sort, setSort] = useState<"newest" | "oldest">("newest");
+  const visible = comments.filter((comment) => comment.status === status).sort((a, b) => {
+    const difference = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    return sort === "newest" ? difference : -difference;
+  });
+  const count = (value: AdminComment["status"]) => comments.filter((comment) => comment.status === value).length;
+  const flags = (comment: AdminComment) => {
+    try {
+      const parsed = JSON.parse(comment.moderation_flags || "[]") as unknown;
+      return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
+    } catch { return []; }
+  };
+  return (
+    <section className="comment-queue">
+      <div className="section-heading">
+        <div><p className="section-no">COMMENTS — REVIEW</p><h2>댓글 검토</h2></div>
+        <p>검토 대기 {count("pending")}건</p>
+      </div>
+      <div className="submission-tools">
+        <div className="submission-tabs" role="tablist" aria-label="댓글 처리함 선택">
+          <button className={status === "pending" ? "active" : ""} onClick={() => setStatus("pending")} role="tab" aria-selected={status === "pending"}>검토 대기 <span>{count("pending")}</span></button>
+          <button className={status === "approved" ? "active" : ""} onClick={() => setStatus("approved")} role="tab" aria-selected={status === "approved"}>공개 댓글 <span>{count("approved")}</span></button>
+          <button className={status === "rejected" ? "active" : ""} onClick={() => setStatus("rejected")} role="tab" aria-selected={status === "rejected"}>비공개 댓글 <span>{count("rejected")}</span></button>
+        </div>
+        <label>정렬<select value={sort} onChange={(event) => setSort(event.target.value as "newest" | "oldest")}><option value="newest">최신 등록순</option><option value="oldest">오래된 등록순</option></select></label>
+      </div>
+      {visible.length ? (
+        <div className="admin-comment-list">
+          {visible.map((comment) => (
+            <article key={comment.id}>
+              <header><div><span>{comment.record_name}</span><strong>{comment.nickname}</strong></div><time>{new Date(comment.created_at).toLocaleString("ko-KR")}</time></header>
+              <p>{comment.body}</p>
+              <div className="comment-review-meta">
+                <span>검토: {comment.moderation_source === "openai" ? "자동 검토" : comment.moderation_source === "local" ? "기본 필터" : comment.moderation_source === "manual" ? "관리자" : "관리자 확인 필요"}</span>
+                {flags(comment).map((flag) => <em key={flag}>{flag}</em>)}
+              </div>
+              <div className="comment-review-actions">
+                <button className="danger" type="button" onClick={() => remove(comment.id)}>영구 삭제</button>
+                {status !== "pending" && <button className="secondary" type="button" onClick={() => update(comment.id, "pending")}>다시 검토</button>}
+                {status !== "rejected" && <button className="secondary" type="button" onClick={() => update(comment.id, "rejected")}>비공개</button>}
+                {status !== "approved" && <button className="primary" type="button" onClick={() => update(comment.id, "approved")}>공개 승인</button>}
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : <div className="empty"><b>{status === "pending" ? "검토할 댓글이 없습니다." : status === "approved" ? "공개된 댓글이 없습니다." : "비공개 댓글이 없습니다."}</b></div>}
+      <details className="comment-events">
+        <summary>최근 삭제 기록 {events.length}건</summary>
+        {events.length ? <ul>{events.map((event) => <li key={event.id}><span>{event.action === "author_deleted" ? "작성자 삭제" : "관리자 삭제"}</span><b>댓글 #{event.comment_id}</b><time>{new Date(event.created_at).toLocaleString("ko-KR")}</time></li>)}</ul> : <p>삭제 기록이 없습니다.</p>}
+      </details>
     </section>
   );
 }

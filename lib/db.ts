@@ -4,11 +4,15 @@ type RuntimeEnv = CloudflareEnv & {
   YEOJEONHI_ADMIN_TOKEN?: string;
   DEPLOYMENT_ROLE?: "public" | "admin";
   ADMIN_EMAIL?: string;
+  TURNSTILE_SITE_KEY?: string;
+  TURNSTILE_SECRET_KEY?: string;
+  OPENAI_API_KEY?: string;
 };
 const runtime = env as RuntimeEnv;
 
 export function db() { return runtime.DB; }
 export function profileImages() { return runtime.PROFILE_IMAGES; }
+export function runtimeEnv() { return runtime; }
 
 // Schema changes run through versioned D1 migrations before deployment.
 export async function ensureDatabase() { return Promise.resolve(); }

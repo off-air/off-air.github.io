@@ -39,6 +39,9 @@ npm run dev
 - 이미지와 그 장면에 대한 기억·시기·출처를 함께 접수하는 제보 기능
 - 제보 이미지를 관리자가 검토한 뒤 선택한 기록의 갤러리에 반영하는 기능
 - 카드 기울기·조명, 검색어 강조, 화면 전환, 스크롤 헤더 등 절제된 반응 효과
+- 기록별 댓글 등록과 같은 기기에서의 작성자 직접 삭제
+- 기본 표현 필터·OpenAI Moderation·관리자 승인으로 이어지는 댓글 검토함
+- Cloudflare Turnstile 사람 확인과 방문자별 댓글 등록 횟수 제한
 
 ## 자동 배포 준비
 
@@ -48,6 +51,14 @@ GitHub 저장소의 Actions secrets에 아래 두 값을 등록합니다.
 - `CLOUDFLARE_API_TOKEN`: Workers·D1·R2 배포 권한을 가진 전용 API 토큰
 
 Cloudflare Worker에는 `YEOJEONHI_ADMIN_TOKEN`을 secret으로 별도 설정해야 관리자 저장 기능을 사용할 수 있습니다. 이 값은 GitHub 저장소나 소스 파일에 넣지 않습니다.
+
+댓글 등록 기능에는 아래 값이 필요합니다.
+
+- `TURNSTILE_SITE_KEY`: Cloudflare Turnstile 공개 사이트 키. 공개·관리자 Worker의 일반 변수로 설정합니다.
+- `TURNSTILE_SECRET_KEY`: Turnstile 비밀 키. 공개 Worker의 secret으로 설정합니다.
+- `OPENAI_API_KEY`: `omni-moderation-latest` 호출 전용 OpenAI 프로젝트 키. 공개 Worker의 secret으로 설정합니다.
+
+두 Turnstile 값이 모두 설정되기 전에는 기존 댓글 열람만 가능하고 등록 폼은 안전하게 비활성화됩니다. OpenAI 키가 없거나 자동 검토가 일시 중단되면 새 댓글은 자동 공개되지 않고 관리자 검토 대기로 들어갑니다.
 
 `main`에 반영된 변경은 검사 후 자동 배포됩니다. Pull Request에서는 배포 없이 코드 검사와 빌드만 실행됩니다.
 데이터베이스 구조가 바뀌는 버전은 배포 전에 해당 D1 마이그레이션을 먼저 적용합니다.
