@@ -1278,7 +1278,7 @@ function RecordComments({ recordId, recordName }: { recordId: number; recordName
     const onLoad = () => setTurnstileReady(true);
     const onError = () => {
       setTurnstileUnavailable(true);
-      setNotice("사람 확인을 사용할 수 없어 이 글은 관리자 확인 후 공개됩니다.");
+      setNotice("남겨주신 글은 확인 후 공개됩니다.");
     };
     if (existing) {
       existing.addEventListener("load", onLoad, { once: true });
@@ -1311,11 +1311,11 @@ function RecordComments({ recordId, recordName }: { recordId: number; recordName
       "error-callback": () => {
         setTurnstileToken("");
         setTurnstileUnavailable(true);
-        setNotice("사람 확인을 사용할 수 없어 이 글은 관리자 확인 후 공개됩니다.");
+        setNotice("남겨주신 글은 확인 후 공개됩니다.");
       },
       "unsupported-callback": () => {
         setTurnstileUnavailable(true);
-        setNotice("이 브라우저에서는 사람 확인을 사용할 수 없어 이 글은 관리자 확인 후 공개됩니다.");
+        setNotice("남겨주신 글은 확인 후 공개됩니다.");
       },
     });
     return () => {
