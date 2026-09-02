@@ -1227,7 +1227,7 @@ function Detail({
 }
 
 type TurnstileApi = {
-  render: (element: HTMLElement, options: { sitekey: string; theme: "light"; callback: (token: string) => void; "expired-callback": () => void; "error-callback": (errorCode: string) => void }) => string;
+  render: (element: HTMLElement, options: { sitekey: string; theme: "light"; callback: (token: string) => void; "expired-callback": () => void; "error-callback": () => void; "unsupported-callback": () => void }) => string;
   reset: (widgetId: string) => void;
   remove: (widgetId: string) => void;
 };
@@ -1249,6 +1249,7 @@ function RecordComments({ recordId, recordName }: { recordId: number; recordName
   const [commentsEnabled, setCommentsEnabled] = useState(false);
   const [turnstileReady, setTurnstileReady] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileUnavailable, setTurnstileUnavailable] = useState(false);
   const [deleteTokens, setDeleteTokens] = useState<Record<string, string>>(loadCommentDeleteTokens);
   const widgetHostRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
@@ -1275,7 +1276,10 @@ function RecordComments({ recordId, recordName }: { recordId: number; recordName
     }
     const existing = document.querySelector<HTMLScriptElement>('script[data-off-air-turnstile="true"]');
     const onLoad = () => setTurnstileReady(true);
-    const onError = () => setNotice("사람 확인을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.");
+    const onError = () => {
+      setTurnstileUnavailable(true);
+      setNotice("사람 확인을 사용할 수 없어 이 글은 관리자 확인 후 공개됩니다.");
+    };
     if (existing) {
       existing.addEventListener("load", onLoad, { once: true });
       existing.addEventListener("error", onError, { once: true });
@@ -1298,11 +1302,20 @@ function RecordComments({ recordId, recordName }: { recordId: number; recordName
     widgetIdRef.current = turnstile.render(widgetHostRef.current, {
       sitekey: siteKey,
       theme: "light",
-      callback: setTurnstileToken,
+      callback: (token) => {
+        setTurnstileUnavailable(false);
+        setTurnstileToken(token);
+        setNotice("");
+      },
       "expired-callback": () => setTurnstileToken(""),
-      "error-callback": (errorCode) => {
+      "error-callback": () => {
         setTurnstileToken("");
-        setNotice(`사람 확인을 불러오지 못했습니다. (오류 ${errorCode})`);
+        setTurnstileUnavailable(true);
+        setNotice("사람 확인을 사용할 수 없어 이 글은 관리자 확인 후 공개됩니다.");
+      },
+      "unsupported-callback": () => {
+        setTurnstileUnavailable(true);
+        setNotice("이 브라우저에서는 사람 확인을 사용할 수 없어 이 글은 관리자 확인 후 공개됩니다.");
       },
     });
     return () => {
@@ -1318,7 +1331,7 @@ function RecordComments({ recordId, recordName }: { recordId: number; recordName
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (submitting) return;
-    if (!turnstileToken) { setNotice("사람 확인을 완료해주세요."); return; }
+    if (!turnstileToken && !turnstileUnavailable) { setNotice("사람 확인을 완료해주세요."); return; }
     setSubmitting(true);
     const form = event.currentTarget;
     const website = new FormData(form).get("website")?.toString() || "";
@@ -1386,7 +1399,7 @@ function RecordComments({ recordId, recordName }: { recordId: number; recordName
           <label><span>기억</span><textarea value={body} onChange={(event) => setBody(event.target.value)} minLength={2} maxLength={300} required rows={4} placeholder="함께 기억하고 싶은 순간을 적어주세요." /></label>
           <div className="comment-submit-row">
             <div ref={widgetHostRef} className="turnstile-host" />
-            <button className="primary" type="submit" disabled={submitting || !turnstileToken}>{submitting ? "등록 중…" : "기억 남기기"}</button>
+            <button className="primary" type="submit" disabled={submitting || (!turnstileToken && !turnstileUnavailable)}>{submitting ? "등록 중…" : "기억 남기기"}</button>
           </div>
         </form>
       ) : <div className="comment-unavailable">댓글 등록 기능을 준비하고 있습니다. 공개된 기억은 계속 볼 수 있습니다.</div>}

@@ -38,18 +38,22 @@ export async function POST(request: Request) {
     const body = cleanText(input.body);
     if (nickname.length < 1 || nickname.length > 20 || body.length < 2 || body.length > 300)
       return withPublicCors(request, Response.json({ error: "이름은 20자, 내용은 300자 이내로 적어주세요." }, { status: 400 }));
-    if (!(await verifyTurnstile(input.turnstileToken, request)))
+    const turnstileVerified = input.turnstileToken.length > 0
+      ? await verifyTurnstile(input.turnstileToken, request)
+      : false;
+    if (input.turnstileToken.length > 0 && !turnstileVerified)
       return withPublicCors(request, Response.json({ error: "사람 확인이 만료되었습니다. 다시 확인해주세요." }, { status: 400 }));
     const recordId = input.recordId as number;
     const record = await db().prepare("SELECT id FROM records WHERE id=? AND published=1").bind(recordId).first();
     if (!record) return withPublicCors(request, Response.json({ error: "기록을 찾을 수 없습니다." }, { status: 404 }));
     const moderation = await moderateComment(nickname, body);
-    const status = moderation.flagged ? "pending" : "approved";
+    const status = moderation.flagged || !turnstileVerified ? "pending" : "approved";
+    const moderationFlags = turnstileVerified ? moderation.flags : [...moderation.flags, "사람 확인 미완료"];
     const deleteToken = createDeleteToken();
     const tokenHash = await hashDeleteToken(deleteToken);
     const inserted = await db().prepare(
       "INSERT INTO record_comments (record_id,nickname,body,status,moderation_source,moderation_flags,delete_token_hash) VALUES (?,?,?,?,?,?,?)",
-    ).bind(recordId, nickname, body, status, moderation.source, JSON.stringify(moderation.flags), tokenHash).run();
+    ).bind(recordId, nickname, body, status, moderation.source, JSON.stringify(moderationFlags), tokenHash).run();
     const comment = {
       id: Number(inserted.meta.last_row_id), record_id: recordId, nickname, body, status,
       created_at: new Date().toISOString(),
