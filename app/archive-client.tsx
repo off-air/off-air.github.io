@@ -1175,11 +1175,7 @@ function Detail({
       <section className="elapsed">
         <p>마지막 활동으로부터</p>
         <strong>{daysAgo(p.last) === null ? "확인 필요" : `${daysAgo(p.last)?.toLocaleString("ko-KR")}일`}</strong>
-        <span>
-          {daysAgo(p.last) === null
-            ? "마지막 확인 일자를 확인하고 있습니다."
-            : `정확히 ${daysAgo(p.last)?.toLocaleString("ko-KR")}일이 흘렀습니다.`}
-        </span>
+        {daysAgo(p.last) === null && <span>마지막 확인 일자를 확인하고 있습니다.</span>}
       </section>
       <section className="community-memory">
         <span>이 기록을 기억하는 마음</span>
