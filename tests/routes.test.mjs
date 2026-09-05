@@ -84,3 +84,22 @@ test("archive defaults and Turnstile CSP remain configured", async () => {
   assert.match(html, /script-src 'self' https:\/\/challenges.cloudflare.com/);
   assert.match(html, /frame-src https:\/\/challenges.cloudflare.com/);
 });
+
+test("admin pagination returns 20 rows and totals across all statuses", async () => {
+  const api = await route("app/api/admin/comments/route.ts", { db: {
+    adminGuard: async () => null, readJson: (req) => req.json(), requestError: () => new Response(null, { status: 400 }),
+    db: () => ({ prepare: (sql) => {
+      if (sql.includes("GROUP BY")) return { all: async () => ({ results: [{ status: "pending", total: 40 }, { status: "approved", total: 60 }] }) };
+      if (sql.includes("comment_events")) return { all: async () => ({ results: [] }) };
+      assert.match(sql, /c.id < \?/);
+      return { bind: (status, before) => {
+        assert.equal(status, "pending"); assert.equal(before, 100);
+        return { all: async () => ({ results: Array.from({ length: 21 }, (_, index) => ({ id: 99 - index })) }) };
+      } };
+    } }),
+  } });
+  const result = await (await api.GET(request("/api/admin/comments?status=pending&before=100"))).json();
+  assert.equal(result.comments.length, 20);
+  assert.equal(result.hasMore, true);
+  assert.equal(result.counts.approved, 60);
+});
