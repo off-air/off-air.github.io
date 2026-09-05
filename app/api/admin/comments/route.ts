@@ -5,14 +5,23 @@ const statuses = new Set(["pending", "approved", "rejected"]);
 export async function GET(request: Request) {
   const denied = await adminGuard(request);
   if (denied) return denied;
-  const [comments, events] = await Promise.all([
+  const params = new URL(request.url).searchParams;
+  const status = params.get("status") || "pending";
+  if (!statuses.has(status)) return Response.json({ error: "처리 상태를 확인해주세요." }, { status: 400 });
+  const oldest = params.get("sort") === "oldest";
+  const before = Number(params.get("before")) || (oldest ? 0 : Number.MAX_SAFE_INTEGER);
+  if (!Number.isSafeInteger(before) || before < 0) return Response.json({ error: "페이지를 확인해주세요." }, { status: 400 });
+  const [comments, events, counts] = await Promise.all([
     db().prepare(
       `SELECT c.id,c.record_id,r.name AS record_name,c.nickname,c.body,c.status,c.moderation_source,c.moderation_flags,c.created_at,c.updated_at,c.reviewed_at
-       FROM record_comments c JOIN records r ON r.id=c.record_id ORDER BY c.created_at DESC,c.id DESC LIMIT 500`,
-    ).all(),
+       FROM record_comments c JOIN records r ON r.id=c.record_id
+       WHERE c.status=? AND c.id ${oldest ? ">" : "<"} ?
+       ORDER BY c.id ${oldest ? "ASC" : "DESC"} LIMIT 21`,
+    ).bind(status, before).all(),
     db().prepare("SELECT id,comment_id,record_id,action,reason,created_at FROM comment_events ORDER BY created_at DESC,id DESC LIMIT 100").all(),
+    db().prepare("SELECT status,COUNT(*) AS total FROM record_comments GROUP BY status").all<{ status: string; total: number }>(),
   ]);
-  return Response.json({ comments: comments.results, events: events.results }, { headers: { "Cache-Control": "no-store" } });
+  return Response.json({ comments: comments.results.slice(0, 20), hasMore: comments.results.length > 20, counts: Object.fromEntries(counts.results.map((row) => [row.status, row.total])), events: events.results }, { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function PATCH(request: Request) {

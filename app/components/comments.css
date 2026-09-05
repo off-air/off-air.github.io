@@ -1,0 +1,17 @@
+.comments-more{margin-top:20px}
+.my-comments{margin-top:28px;padding:20px;border:1px solid var(--line);border-radius:var(--radius-md);background:var(--blue-soft)}
+.my-comments h3{font-size:16px;margin:0}
+.my-comments>p,.my-comments header span{font-size:12px;color:var(--muted)}
+.my-comments .comment-list{margin-top:12px}
+@media(max-width:720px){
+  .records{padding-top:30px}
+  .records>.section-heading{margin-bottom:22px}
+  .archive-tools{display:grid;grid-template-columns:1fr 1fr;height:auto;gap:0}
+  .archive-tools .search{grid-column:1/-1;min-height:52px}
+  .archive-tools .sort{min-width:0;padding:10px 12px;white-space:nowrap;gap:8px}
+  .archive-tools .sort select{min-width:0;width:auto;flex:1}
+  .archive-tools .view-switch{grid-column:1/-1}
+  .status-filters{padding:12px;gap:7px}
+  .status-filters button{padding:9px 11px}
+  .result-count{margin-top:20px}
+}

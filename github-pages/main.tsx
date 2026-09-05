@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import ArchiveApp from "../app/archive-client";
 import "../app/globals.css";
 import "../app/admin.css";
+import "../app/components/comments.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

@@ -15,12 +15,14 @@ const cleanText = (value: string) => value.replace(/[\u0000-\u001f\u007f]/g, " "
 export async function GET(request: Request) {
   const recordId = Number(new URL(request.url).searchParams.get("recordId"));
   if (!Number.isInteger(recordId)) return withPublicCors(request, Response.json({ error: "기록을 확인해주세요." }, { status: 400 }));
+  const before = Number(new URL(request.url).searchParams.get("before")) || Number.MAX_SAFE_INTEGER;
+  if (!Number.isSafeInteger(before) || before < 1) return withPublicCors(request, Response.json({ error: "페이지를 확인해주세요." }, { status: 400 }));
   const { results } = await db().prepare(
     `SELECT c.id,c.record_id,c.nickname,c.body,c.created_at
      FROM record_comments c JOIN records r ON r.id=c.record_id
-     WHERE c.record_id=? AND c.status='approved' AND r.published=1
-     ORDER BY c.created_at DESC,c.id DESC LIMIT 100`,
-  ).bind(recordId).all();
+     WHERE c.record_id=? AND c.status='approved' AND r.published=1 AND c.id<?
+     ORDER BY c.id DESC LIMIT 20`,
+  ).bind(recordId, before).all();
   return withPublicCors(request, Response.json(results, { headers: { "Cache-Control": "public, max-age=10, s-maxage=20" } }));
 }
 
@@ -46,7 +48,7 @@ export async function POST(request: Request) {
     const recordId = input.recordId as number;
     const record = await db().prepare("SELECT id FROM records WHERE id=? AND published=1").bind(recordId).first();
     if (!record) return withPublicCors(request, Response.json({ error: "기록을 찾을 수 없습니다." }, { status: 404 }));
-    const moderation = await moderateComment(nickname, body);
+    const moderation = turnstileVerified ? await moderateComment(nickname, body) : { flagged: true, flags: [] as string[], source: "unavailable" };
     const status = moderation.flagged || !turnstileVerified ? "pending" : "approved";
     const moderationFlags = turnstileVerified ? moderation.flags : [...moderation.flags, "사람 확인 미완료"];
     const deleteToken = createDeleteToken();

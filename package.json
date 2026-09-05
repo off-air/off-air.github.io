@@ -12,7 +12,8 @@
     "start": "vinext start",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern dist-pages --ignore-pattern .next --ignore-pattern worker-configuration.d.ts",
     "typecheck": "tsc --noEmit",
-    "check": "npm run lint && npm run typecheck"
+    "test": "node --experimental-vm-modules --test tests/*.test.mjs",
+    "check": "npm run lint && npm run typecheck && npm test"
   },
   "dependencies": {
     "next": "^16.3.2",
